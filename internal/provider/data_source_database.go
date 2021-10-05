@@ -45,6 +45,7 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		body, err := ioutil.ReadAll(res.Body)
 		if err != nil {
@@ -52,8 +53,6 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 		}
 		return diag.FromErr(fmt.Errorf("unable to retrieve database from SkySQL: Status: %v, Body: %v", res.StatusCode, string(body)))
 	}
-
-	defer res.Body.Close()
 
 	var database map[string]interface{}
 	if err := json.NewDecoder(res.Body).Decode(&database); err != nil {

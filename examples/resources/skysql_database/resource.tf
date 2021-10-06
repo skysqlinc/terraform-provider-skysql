@@ -1,20 +1,5 @@
-terraform {
-  required_providers {
-    skysql = {
-      source  = "registry.terraform.io/mariadb-corporation/skysql"
-      version = "0.0.1"
-    }
-  }
-}
-provider "skysql" {}
-data "skysql_database" "wat" {
-  id = "db00008965"
-}
-output "wat" {
-  value = data.skysql_database.wat
-}
 resource "skysql_database" "wat" {
-  release_version = "MariaDB Enterprise Server 10.5.9-6"
+  release_version = "MariaDB Enterprise Server 10.4.18-11"
   topology        = "Standalone"
   size            = "Sky-2x4"
   tx_storage      = "100"
@@ -28,4 +13,5 @@ resource "skysql_database" "wat" {
   volume_iops     = "100"
   volume_type     = "io1"
   maxscale_proxy  = "false"
+  tier            = "Premium"
 }

@@ -57,7 +57,7 @@ func New(version string) func() *schema.Provider {
 				"skysql_database": dataSourceDatabase(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"scaffolding_resource": resourceScaffolding(),
+				"skysql_database": resourceDatabase(),
 			},
 		}
 

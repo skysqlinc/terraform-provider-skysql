@@ -1,7 +1,7 @@
 default: install
 .PHONY: build release install test testacc docs
 
-TEST?=$$(go list ./... | grep -v 'vendor')
+TEST?=$$(go list ./internal/... | grep -v 'vendor')
 HOSTNAME=registry.terraform.io
 NAMESPACE=mariadb-corporation
 NAME=skysql
@@ -40,11 +40,10 @@ install: build
 	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 test:
-	go test -i $(TEST) || exit 1
-	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4
+	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4 || exit 1
 
 testacc:
-	TF_ACC=1 go test ./... -v $(TESTARGS) -timeout 120m
+	TF_ACC=1 make test
 
 docs:
 	go generate

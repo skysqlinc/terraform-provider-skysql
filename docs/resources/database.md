@@ -14,20 +14,19 @@ MariaDB database service deployed by SkySQL
 
 ```terraform
 resource "skysql_database" "wat" {
-  release_version = "MariaDB Enterprise Server 10.5.9-6"
+  release_version = "MariaDB Enterprise Server 10.4.18-11"
   topology        = "Standalone"
   size            = "Sky-2x4"
   tx_storage      = "100"
-  maxscale_config = ""
   name            = "standalone-example"
   region          = "ca-central-1"
-  repl_region     = ""
   cloud_provider  = "Amazon AWS"
   replicas        = "0"
   monitor         = "false"
   volume_iops     = "100"
   volume_type     = "io1"
   maxscale_proxy  = "false"
+  tier            = "Premium"
 }
 ```
 
@@ -37,17 +36,21 @@ resource "skysql_database" "wat" {
 ### Required
 
 - **cloud_provider** (String)
-- **maxscale_config** (String)
-- **maxscale_proxy** (String)
-- **monitor** (String)
 - **name** (String)
 - **region** (String)
 - **release_version** (String)
-- **repl_region** (String)
 - **replicas** (String)
 - **size** (String)
+- **tier** (String)
 - **topology** (String)
 - **tx_storage** (String)
+
+### Optional
+
+- **maxscale_config** (String)
+- **maxscale_proxy** (String)
+- **monitor** (String)
+- **repl_region** (String)
 - **volume_iops** (String)
 - **volume_type** (String)
 
@@ -61,7 +64,6 @@ resource "skysql_database" "wat" {
 - **columnstore_bucket** (String)
 - **custom_config** (String)
 - **dns_domain** (String)
-- **enable_pam_authentication** (String)
 - **fault_count** (String)
 - **fqdn** (String)
 - **gl_account** (String)

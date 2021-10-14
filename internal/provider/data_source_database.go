@@ -18,10 +18,10 @@ import (
 func dataSourceDatabase() *schema.Resource {
 	s := make(map[string]*schema.Schema)
 	for _, field := range databaseFields() {
-		s[reservedNamesAtoT(field)] = &schema.Schema{
+		s[reservedNamesAtoT(field.Name)] = &schema.Schema{
 			Type:     schema.TypeString,
-			Computed: field != "id",
-			Required: field == "id",
+			Computed: field.Name != "id",
+			Required: field.Name == "id",
 		}
 	}
 	return &schema.Resource{
@@ -44,7 +44,7 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	}
 
 	for _, field := range databaseFields() {
-		d.Set(reservedNamesAtoT(field), database[field])
+		d.Set(reservedNamesAtoT(field.Name), database[field.Name])
 	}
 
 	d.SetId(id)
@@ -52,37 +52,54 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	return diags
 }
 
-func databaseFields() []string {
-	return fieldNames(skysql.Database{})
+func databaseFields() []fieldInfo {
+	return fields(skysql.Database{})
 }
 
-func databaseCreateFields() []string {
-	return fieldNames(skysql.NewDatabase{})
+func databaseCreateFields() []fieldInfo {
+	return fields(skysql.NewDatabase{})
 }
 
-func databaseUpdateFields() []string {
-	return fieldNames(skysql.DatabaseUpdate{})
+func databaseUpdateFields() []fieldInfo {
+	return fields(skysql.DatabaseUpdate{})
 }
 
-func fieldNames(val interface{}) []string {
-	var names []string
+type fieldInfo struct {
+	Name     string
+	Optional bool
+}
+
+func fields(val interface{}) []fieldInfo {
+	var fields []fieldInfo
 	for _, field := range reflect.VisibleFields(reflect.TypeOf(val)) {
-		fieldName := jsonFieldName(field)
-		if fieldName == "" {
+		fieldInfo := jsonFieldInfo(field)
+		if fieldInfo.Name == "" {
 			continue
 		}
-		names = append(names, fieldName)
+		fields = append(fields, fieldInfo)
 	}
-	return names
+	return fields
 }
 
-func jsonFieldName(field reflect.StructField) string {
+func jsonFieldInfo(field reflect.StructField) fieldInfo {
 	tag := field.Tag.Get("json")
 	if tag == "" || tag == "-" {
-		return ""
+		return fieldInfo{
+			Name:     "",
+			Optional: true,
+		}
 	}
+
 	parts := strings.Split(tag, ",")
-	return parts[0]
+	optional := false
+	if len(parts) > 1 {
+		optional = parts[1] == "omitempty"
+	}
+
+	return fieldInfo{
+		Name:     parts[0],
+		Optional: optional,
+	}
 }
 
 // reservedNamesAtoT avoids name collisions with reserved words in terraform by

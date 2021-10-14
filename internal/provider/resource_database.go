@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -14,15 +13,9 @@ import (
 func resourceDatabase() *schema.Resource {
 	s := make(map[string]*schema.Schema)
 
-	s["last_updated"] = &schema.Schema{
-		Type:     schema.TypeString,
-		Optional: true,
-		Computed: true,
-	}
-
 	// defaults for all fields
 	for _, field := range databaseFields() {
-		s[reservedNamesAtoT(field)] = &schema.Schema{
+		s[reservedNamesAtoT(field.Name)] = &schema.Schema{
 			Type:     schema.TypeString,
 			Computed: true,
 		}
@@ -30,14 +23,15 @@ func resourceDatabase() *schema.Resource {
 
 	// overrides for fields included in create requests
 	for _, field := range databaseCreateFields() {
-		s[reservedNamesAtoT(field)].Computed = false
-		s[reservedNamesAtoT(field)].Required = true
-		s[reservedNamesAtoT(field)].ForceNew = true
+		s[reservedNamesAtoT(field.Name)].Computed = false
+		s[reservedNamesAtoT(field.Name)].Required = !field.Optional
+		s[reservedNamesAtoT(field.Name)].Optional = field.Optional
+		s[reservedNamesAtoT(field.Name)].ForceNew = true
 	}
 
 	// overrides for fields that may be updated in place
 	for _, field := range databaseUpdateFields() {
-		s[reservedNamesAtoT(field)].ForceNew = false
+		s[reservedNamesAtoT(field.Name)].ForceNew = false
 	}
 
 	return &schema.Resource{
@@ -61,7 +55,7 @@ func resourceDatabaseCreate(ctx context.Context, d *schema.ResourceData, meta in
 	// collect the attributes specified by the user
 	attrs := make(map[string]interface{})
 	for _, field := range databaseCreateFields() {
-		attrs[field] = d.Get(reservedNamesAtoT(field))
+		attrs[field.Name] = d.Get(reservedNamesAtoT(field.Name))
 	}
 
 	// marshal them into a json byte string to take advantage
@@ -108,7 +102,7 @@ func resourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	for _, field := range databaseFields() {
-		d.Set(reservedNamesAtoT(field), database[field])
+		d.Set(reservedNamesAtoT(field.Name), database[field.Name])
 	}
 
 	return diags
@@ -122,8 +116,8 @@ func resourceDatabaseUpdate(ctx context.Context, d *schema.ResourceData, meta in
 	var updateNeeded bool
 	attrs := make(map[string]interface{})
 	for _, field := range databaseUpdateFields() {
-		attrs[field] = d.Get(reservedNamesAtoT(field))
-		updateNeeded = updateNeeded || d.HasChange(field)
+		attrs[field.Name] = d.Get(reservedNamesAtoT(field.Name))
+		updateNeeded = updateNeeded || d.HasChange(field.Name)
 	}
 
 	if updateNeeded {
@@ -149,7 +143,6 @@ func resourceDatabaseUpdate(ctx context.Context, d *schema.ResourceData, meta in
 		if errDiag != nil {
 			return errDiag
 		}
-		d.Set("last_updated", time.Now().Format(time.RFC850))
 	}
 
 	return resourceDatabaseRead(ctx, d, meta)

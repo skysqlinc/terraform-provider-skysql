@@ -1,0 +1,15 @@
+resource "skysql_database" "wat" {
+  release_version = "MariaDB Enterprise Server 10.4.18-11"
+  topology        = "Standalone"
+  size            = "Sky-2x4"
+  tx_storage      = "100"
+  name            = "standalone-example"
+  region          = "ca-central-1"
+  cloud_provider  = "Amazon AWS"
+  replicas        = "0"
+  monitor         = "false"
+  volume_iops     = "100"
+  volume_type     = "io1"
+  maxscale_proxy  = "false"
+  tier            = "Premium"
+}

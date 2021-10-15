@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -17,14 +18,10 @@ import (
 func dataSourceDatabase() *schema.Resource {
 	s := make(map[string]*schema.Schema)
 	for _, field := range databaseFields() {
-		name := jsonFieldName(field)
-		if name == "" {
-			continue
-		}
-		s[reservedNamesAtoT(name)] = &schema.Schema{
+		s[reservedNamesAtoT(field.Name)] = &schema.Schema{
 			Type:     schema.TypeString,
-			Computed: name != "id",
-			Required: name == "id",
+			Computed: field.Name != "id",
+			Required: field.Name == "id",
 		}
 	}
 	return &schema.Resource{
@@ -39,37 +36,15 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	client := meta.(*skysql.Client)
 	var diags diag.Diagnostics
 
-	databaseID := d.Get("id").(string)
+	id := d.Get("id").(string)
 
-	res, err := client.ReadDatabase(ctx, databaseID)
+	database, err := readDatabase(ctx, client, id)
 	if err != nil {
-		return diag.FromErr(err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return diag.FromErr(fmt.Errorf("unable to retrieve database from SkySQL: Status: %v, Err: %v", res.StatusCode, err))
-		}
-		return diag.FromErr(fmt.Errorf("unable to retrieve database from SkySQL: Status: %v, Body: %v", res.StatusCode, string(body)))
-	}
-
-	var database map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&database); err != nil {
-		return diag.FromErr(err)
-	}
-
-	id := database["id"].(string)
-	if id == "" {
-		return diag.FromErr(fmt.Errorf("unable to decode database response from SkySQL: %v", database))
+		return err
 	}
 
 	for _, field := range databaseFields() {
-		fieldName := jsonFieldName(field)
-		if fieldName == "" {
-			continue
-		}
-		d.Set(reservedNamesAtoT(fieldName), database[fieldName])
+		d.Set(reservedNamesAtoT(field.Name), database[field.Name])
 	}
 
 	d.SetId(id)
@@ -77,17 +52,54 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	return diags
 }
 
-func databaseFields() []reflect.StructField {
-	return reflect.VisibleFields(reflect.TypeOf(skysql.Database{}))
+func databaseFields() []fieldInfo {
+	return fields(skysql.Database{})
 }
 
-func jsonFieldName(field reflect.StructField) string {
+func databaseCreateFields() []fieldInfo {
+	return fields(skysql.NewDatabase{})
+}
+
+func databaseUpdateFields() []fieldInfo {
+	return fields(skysql.DatabaseUpdate{})
+}
+
+type fieldInfo struct {
+	Name     string
+	Optional bool
+}
+
+func fields(val interface{}) []fieldInfo {
+	var fields []fieldInfo
+	for _, field := range reflect.VisibleFields(reflect.TypeOf(val)) {
+		fieldInfo := jsonFieldInfo(field)
+		if fieldInfo.Name == "" {
+			continue
+		}
+		fields = append(fields, fieldInfo)
+	}
+	return fields
+}
+
+func jsonFieldInfo(field reflect.StructField) fieldInfo {
 	tag := field.Tag.Get("json")
 	if tag == "" || tag == "-" {
-		return ""
+		return fieldInfo{
+			Name:     "",
+			Optional: true,
+		}
 	}
+
 	parts := strings.Split(tag, ",")
-	return parts[0]
+	optional := false
+	if len(parts) > 1 {
+		optional = parts[1] == "omitempty"
+	}
+
+	return fieldInfo{
+		Name:     parts[0],
+		Optional: optional,
+	}
 }
 
 // reservedNamesAtoT avoids name collisions with reserved words in terraform by
@@ -97,4 +109,49 @@ func reservedNamesAtoT(name string) string {
 		return "cloud_provider"
 	}
 	return name
+}
+
+func readDatabase(ctx context.Context, client *skysql.Client, id string) (map[string]interface{}, diag.Diagnostics) {
+	res, err := client.ReadDatabase(ctx, id)
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+
+	database, errDiag := decodeAPIResponseBody(res)
+	if errDiag != nil {
+		return nil, errDiag
+	}
+
+	databaseID := database["id"].(string)
+	if databaseID != id {
+		return nil, diag.FromErr(fmt.Errorf("bad response from SkySQL: %v", database))
+	}
+
+	return database, nil
+}
+
+func decodeAPIResponseBody(res *http.Response) (map[string]interface{}, diag.Diagnostics) {
+	defer res.Body.Close()
+
+	err := checkAPIStatus(res.StatusCode, res.Body)
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+
+	var decodedBody map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&decodedBody); err != nil {
+		return nil, diag.FromErr(err)
+	}
+	return decodedBody, nil
+}
+
+func checkAPIStatus(code int, body io.ReadCloser) error {
+	if code != http.StatusOK {
+		body, err := ioutil.ReadAll(body)
+		if err != nil {
+			return fmt.Errorf("bad response from SkySQL: Status: %v, Err: %v", code, err)
+		}
+		return fmt.Errorf("bad response from from SkySQL: Status: %v, Body: %v", code, string(body))
+	}
+	return nil
 }

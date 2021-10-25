@@ -54,10 +54,10 @@ func New(version string) func() *schema.Provider {
 				},
 			},
 			DataSourcesMap: map[string]*schema.Resource{
-				"skysql_database": dataSourceDatabase(),
+				"skysql_service": dataSourceService(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"skysql_database": resourceDatabase(),
+				"skysql_service": resourceService(),
 			},
 		}
 

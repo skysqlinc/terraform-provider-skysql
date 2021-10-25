@@ -1,4 +1,4 @@
-resource "skysql_database" "wat" {
+resource "skysql_service" "wat" {
   release_version = "MariaDB Enterprise Server 10.4.18-11"
   topology        = "Standalone"
   size            = "Sky-2x4"

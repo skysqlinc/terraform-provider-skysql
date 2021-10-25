@@ -15,9 +15,9 @@ import (
 	"github.com/mariadb-corporation/skysql-api-go"
 )
 
-func dataSourceDatabase() *schema.Resource {
+func dataSourceService() *schema.Resource {
 	s := make(map[string]*schema.Schema)
-	for _, field := range databaseFields() {
+	for _, field := range serviceFields() {
 		s[reservedNamesAtoT(field.Name)] = &schema.Schema{
 			Type:     schema.TypeString,
 			Computed: field.Name != "id",
@@ -25,26 +25,26 @@ func dataSourceDatabase() *schema.Resource {
 		}
 	}
 	return &schema.Resource{
-		Description: "MariaDB database service deployed by SkySQL",
-		ReadContext: dataSourceDatabaseRead,
+		Description: "MariaDB service deployed by SkySQL",
+		ReadContext: dataSourceServiceRead,
 		Schema:      s,
 	}
 }
 
-func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
+func dataSourceServiceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	// use the meta value to retrieve your client from the provider configure method
 	client := meta.(*skysql.Client)
 	var diags diag.Diagnostics
 
 	id := d.Get("id").(string)
 
-	database, err := readDatabase(ctx, client, id)
+	service, err := readService(ctx, client, id)
 	if err != nil {
 		return err
 	}
 
-	for _, field := range databaseFields() {
-		d.Set(reservedNamesAtoT(field.Name), database[field.Name])
+	for _, field := range serviceFields() {
+		d.Set(reservedNamesAtoT(field.Name), service[field.Name])
 	}
 
 	d.SetId(id)
@@ -52,16 +52,16 @@ func dataSourceDatabaseRead(ctx context.Context, d *schema.ResourceData, meta in
 	return diags
 }
 
-func databaseFields() []fieldInfo {
-	return fields(skysql.Database{})
+func serviceFields() []fieldInfo {
+	return fields(skysql.Service{})
 }
 
-func databaseCreateFields() []fieldInfo {
-	return fields(skysql.NewDatabase{})
+func serviceCreateFields() []fieldInfo {
+	return fields(skysql.NewService{})
 }
 
-func databaseUpdateFields() []fieldInfo {
-	return fields(skysql.DatabaseUpdate{})
+func serviceUpdateFields() []fieldInfo {
+	return fields(skysql.ServiceUpdate{})
 }
 
 type fieldInfo struct {
@@ -111,23 +111,23 @@ func reservedNamesAtoT(name string) string {
 	return name
 }
 
-func readDatabase(ctx context.Context, client *skysql.Client, id string) (map[string]interface{}, diag.Diagnostics) {
-	res, err := client.ReadDatabase(ctx, id)
+func readService(ctx context.Context, client *skysql.Client, id string) (map[string]interface{}, diag.Diagnostics) {
+	res, err := client.ReadService(ctx, id)
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
 
-	database, errDiag := decodeAPIResponseBody(res)
+	service, errDiag := decodeAPIResponseBody(res)
 	if errDiag != nil {
 		return nil, errDiag
 	}
 
-	databaseID := database["id"].(string)
-	if databaseID != id {
-		return nil, diag.FromErr(fmt.Errorf("bad response from SkySQL: %v", database))
+	serviceID := service["id"].(string)
+	if serviceID != id {
+		return nil, diag.FromErr(fmt.Errorf("bad response from SkySQL: %v", service))
 	}
 
-	return database, nil
+	return service, nil
 }
 
 func decodeAPIResponseBody(res *http.Response) (map[string]interface{}, diag.Diagnostics) {

@@ -1,3 +1,3 @@
-data "skysql_database" "wat" {
+data "skysql_service" "wat" {
   id = "db00008965"
 }

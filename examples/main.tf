@@ -7,13 +7,13 @@ terraform {
   }
 }
 provider "skysql" {}
-data "skysql_database" "wat" {
+data "skysql_service" "wat" {
   id = "db00008965"
 }
 output "wat" {
-  value = data.skysql_database.wat
+  value = data.skysql_service.wat
 }
-resource "skysql_database" "wat" {
+resource "skysql_service" "wat" {
   release_version = "MariaDB Enterprise Server 10.5.9-6"
   topology        = "Standalone"
   size            = "Sky-2x4"

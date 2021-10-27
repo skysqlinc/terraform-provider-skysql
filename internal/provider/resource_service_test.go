@@ -45,7 +45,7 @@ func testAccResourceService(nameSeed string) string {
 		volume_iops     = "100"
 		volume_type     = "io1"
 		maxscale_proxy  = "false"
-		tier            = "Premium"
+		tier            = "Foundation"
 	}`, nameSeed)
 }
 

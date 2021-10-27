@@ -69,12 +69,17 @@ type fieldInfo struct {
 	Optional bool
 }
 
-func fields(val interface{}) []fieldInfo {
+func fields(val interface{}, exclude ...map[string]bool) []fieldInfo {
 	var fields []fieldInfo
 	for _, field := range reflect.VisibleFields(reflect.TypeOf(val)) {
 		fieldInfo := jsonFieldInfo(field)
 		if fieldInfo.Name == "" {
 			continue
+		}
+		if len(exclude) > 0 {
+			if _, ok := exclude[0][fieldInfo.Name]; ok {
+				continue
+			}
 		}
 		fields = append(fields, fieldInfo)
 	}

@@ -7,19 +7,25 @@ terraform {
   }
 }
 provider "skysql" {}
-data "skysql_service" "wat" {
+data "skysql_service" "existing-service" {
   id = "db00008965"
 }
-output "wat" {
-  value = data.skysql_service.wat
+data "skysql_config" "existing-config" {
+  id = "CFG0001355"
 }
-resource "skysql_service" "wat" {
-  release_version = "MariaDB Enterprise Server 10.5.9-6"
+output "existing-service-details" {
+  value = data.skysql_service.existing-service
+}
+output "existing-config-details" {
+  value = data.skysql_config.existing-config
+}
+resource "skysql_service" "dmayo-example-resource" {
+  release_version = "MariaDB Enterprise Server 10.6.4-1"
   topology        = "Standalone"
   size            = "Sky-2x4"
   tx_storage      = "100"
   maxscale_config = ""
-  name            = "standalone-example"
+  name            = "dmayo-example"
   region          = "ca-central-1"
   repl_region     = ""
   cloud_provider  = "Amazon AWS"
@@ -28,4 +34,5 @@ resource "skysql_service" "wat" {
   volume_iops     = "100"
   volume_type     = "io1"
   maxscale_proxy  = "false"
+  tier            = "Foundation"
 }

@@ -55,6 +55,7 @@ func New(version string) func() *schema.Provider {
 			},
 			DataSourcesMap: map[string]*schema.Resource{
 				"skysql_service": dataSourceService(),
+				"skysql_config":  dataSourceConfig(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
 				"skysql_service": resourceService(),

@@ -53,11 +53,11 @@ func dataSourceServiceRead(ctx context.Context, d *schema.ResourceData, meta int
 }
 
 func serviceFields() []fieldInfo {
-	return fields(skysql.Service{})
+	return fields(skysql.ServiceOut{})
 }
 
 func serviceCreateFields() []fieldInfo {
-	return fields(skysql.NewService{})
+	return fields(skysql.ServiceIn{})
 }
 
 func serviceUpdateFields() []fieldInfo {

@@ -11,5 +11,5 @@ resource "skysql_service" "wat" {
   volume_iops     = "100"
   volume_type     = "io1"
   maxscale_proxy  = "false"
-  tier            = "Premium"
+  tier            = "Foundation"
 }

@@ -16,6 +16,7 @@ on:
       - 'v*'
 jobs:
   goreleaser:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       -

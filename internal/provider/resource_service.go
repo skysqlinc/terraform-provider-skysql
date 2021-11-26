@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -158,7 +159,7 @@ func resourceServiceDelete(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.FromErr(err)
 	}
 
-	err = checkAPIStatus(res.StatusCode, res.Body)
+	err = checkAPIStatus(res.StatusCode, res.Body, http.StatusNoContent)
 	if err != nil {
 		return diag.FromErr(err)
 	}

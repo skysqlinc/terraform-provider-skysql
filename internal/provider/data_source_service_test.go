@@ -28,7 +28,7 @@ func TestAccDataSourceServices(t *testing.T) {
 					resource.TestMatchResourceAttr("data.skysql_service.wat", "created_by", regexp.MustCompile("don.mayo@mariadb.com")),
 					resource.TestMatchResourceAttr("data.skysql_service.wat", "ssl_certificate", regexp.MustCompile("")),
 					resource.TestMatchResourceAttr("data.skysql_service.wat", "columnstore_bucket", regexp.MustCompile("")),
-					resource.TestMatchResourceAttr("data.skysql_service.wat", "topology", regexp.MustCompile("Standalone")),
+					resource.TestMatchResourceAttr("data.skysql_service.wat", "topology", regexp.MustCompile("Single Node Transactions")),
 					resource.TestMatchResourceAttr("data.skysql_service.wat", "owned_by", regexp.MustCompile("Don Mayo")),
 					resource.TestMatchResourceAttr("data.skysql_service.wat", "proxy", regexp.MustCompile("")),
 					resource.TestMatchResourceAttr("data.skysql_service.wat", "size", regexp.MustCompile("Sky-2x4")),

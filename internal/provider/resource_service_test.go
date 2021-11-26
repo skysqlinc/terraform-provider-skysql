@@ -32,7 +32,7 @@ func testAccResourceService(nameSeed string) string {
 	return fmt.Sprintf(`
 	resource "skysql_service" "wat" {
 		release_version = "MariaDB Enterprise Server 10.6.4-1"
-		topology        = "Standalone"
+		topology        = "Single Node Transactions"
 		size            = "Sky-2x4"
 		tx_storage      = "100"
 		maxscale_config = ""
@@ -65,7 +65,7 @@ func svcChecks(nameSeed string) []resource.TestCheckFunc {
 		resource.TestMatchResourceAttr("skysql_service.wat", "created_by", regexp.MustCompile("svc_skysql_api")),
 		resource.TestMatchResourceAttr("skysql_service.wat", "ssl_certificate", regexp.MustCompile("")),
 		resource.TestMatchResourceAttr("skysql_service.wat", "columnstore_bucket", regexp.MustCompile("")),
-		resource.TestMatchResourceAttr("skysql_service.wat", "topology", regexp.MustCompile("Standalone")),
+		resource.TestMatchResourceAttr("skysql_service.wat", "topology", regexp.MustCompile("Single Node Transactions")),
 		resource.TestMatchResourceAttr("skysql_service.wat", "owned_by", regexp.MustCompile(".+")),
 		resource.TestMatchResourceAttr("skysql_service.wat", "proxy", regexp.MustCompile("")),
 		resource.TestMatchResourceAttr("skysql_service.wat", "size", regexp.MustCompile("Sky-2x4")),

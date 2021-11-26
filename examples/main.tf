@@ -15,7 +15,7 @@ output "wat" {
 }
 resource "skysql_service" "wat" {
   release_version = "MariaDB Enterprise Server 10.5.9-6"
-  topology        = "Standalone"
+  topology        = "Single Node Transactions"
   size            = "Sky-2x4"
   tx_storage      = "100"
   maxscale_config = ""

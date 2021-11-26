@@ -133,7 +133,7 @@ func readService(ctx context.Context, client *skysql.Client, id string) (map[str
 func decodeAPIResponseBody(res *http.Response) (map[string]interface{}, diag.Diagnostics) {
 	defer res.Body.Close()
 
-	err := checkAPIStatus(res.StatusCode, res.Body)
+	err := checkAPIStatus(res.StatusCode, res.Body, http.StatusOK)
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
@@ -145,8 +145,8 @@ func decodeAPIResponseBody(res *http.Response) (map[string]interface{}, diag.Dia
 	return decodedBody, nil
 }
 
-func checkAPIStatus(code int, body io.ReadCloser) error {
-	if code != http.StatusOK {
+func checkAPIStatus(code int, body io.ReadCloser, status int) error {
+	if code != status {
 		body, err := ioutil.ReadAll(body)
 		if err != nil {
 			return fmt.Errorf("bad response from SkySQL: Status: %v, Err: %v", code, err)

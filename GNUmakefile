@@ -40,7 +40,7 @@ install: build
 	mv ${BINARY} ~/.terraform.d/plugins/${HOSTNAME}/${NAMESPACE}/${NAME}/${VERSION}/${OS_ARCH}
 
 test:
-	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=30s -parallel=4 || exit 1
+	echo $(TEST) | xargs -t -n4 go test $(TESTARGS) -timeout=90s -parallel=4 || exit 1
 
 testacc:
 	TF_ACC=1 make test

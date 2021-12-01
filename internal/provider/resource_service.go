@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mariadb-corporation/skysql-api-go"
 )
@@ -35,6 +37,14 @@ func resourceService() *schema.Resource {
 		s[reservedNamesAtoT(field.Name)].ForceNew = false
 	}
 
+	s["wait_for_install"] = &schema.Schema{
+		Type:        schema.TypeString,
+		Computed:    false,
+		Optional:    true,
+		Default:     "true",
+		Description: "Set to false to skip waiting for the service to be deployed",
+	}
+
 	return &schema.Resource{
 		Description: "MariaDB service deployed by SkySQL",
 
@@ -46,6 +56,9 @@ func resourceService() *schema.Resource {
 		Schema: s,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
+		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(60 * time.Minute),
 		},
 	}
 }
@@ -88,7 +101,23 @@ func resourceServiceCreate(ctx context.Context, d *schema.ResourceData, meta int
 	}
 	d.SetId(id)
 
-	return resourceServiceRead(ctx, d, meta)
+	err = resource.RetryContext(ctx, d.Timeout(schema.TimeoutCreate), func() *resource.RetryError {
+		err := resourceServiceRead(ctx, d, meta)
+		if err != nil {
+			return resource.NonRetryableError(fmt.Errorf("error retrieving service details: %v", err))
+		}
+
+		// block until install is complete
+		if d.Get("wait_for_install") == "true" && d.Get("install_status") != "Installed" {
+			return resource.RetryableError(fmt.Errorf("expected instance to be Installed but was in state %s", d.Get("install_status")))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	return nil
 }
 
 func resourceServiceRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {

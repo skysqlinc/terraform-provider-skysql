@@ -58,7 +58,8 @@ func New(version string) func() *schema.Provider {
 				"skysql_credentials": dataSourceCredentials(),
 			},
 			ResourcesMap: map[string]*schema.Resource{
-				"skysql_service": resourceService(),
+				"skysql_service":         resourceService(),
+				"skysql_allowlist_entry": resourceAllowlistEntry(),
 			},
 		}
 

@@ -26,12 +26,10 @@ resource "skysql_service" "wat" {
   maxscale_config = ""
   name            = "standalone-example"
   region          = "ca-central-1"
-  repl_region     = ""
   cloud_provider  = "Amazon AWS"
   replicas        = "0"
   monitor         = "false"
   volume_iops     = "100"
-  volume_type     = "io1"
   maxscale_proxy  = "false"
   tier            = "Foundation"
 }

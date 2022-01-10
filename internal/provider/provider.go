@@ -45,12 +45,12 @@ func New(version string) func() *schema.Provider {
 				"mdbid_url": {
 					Type:        schema.TypeString,
 					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_MDBID_URL", "https://id-dev.mariadb.com"),
+					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_MDBID_URL", "https://id.mariadb.com"),
 				},
 				"host": {
 					Type:        schema.TypeString,
 					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_HOST", "https://api.dev.gcp.mariadb.net"),
+					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_HOST", "https://api.skysql.net"),
 				},
 			},
 			DataSourcesMap: map[string]*schema.Resource{

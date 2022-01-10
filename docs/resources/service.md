@@ -24,7 +24,6 @@ resource "skysql_service" "wat" {
   replicas        = "0"
   monitor         = "false"
   volume_iops     = "100"
-  volume_type     = "io1"
   maxscale_proxy  = "false"
   tier            = "Foundation"
 }
@@ -50,48 +49,23 @@ resource "skysql_service" "wat" {
 - **maxscale_config** (String)
 - **maxscale_proxy** (String)
 - **monitor** (String)
-- **repl_region** (String)
 - **ssl_tls** (String)
 - **timeouts** (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - **volume_iops** (String)
-- **volume_type** (String)
 - **wait_for_install** (String) Set to false to skip waiting for the service to be deployed
 
 ### Read-Only
 
-- **active_replicas** (String)
-- **bulkdata_port_1** (String)
-- **bulkdata_port_2** (String)
-- **cluster** (String)
-- **columnstore_bucket** (String)
-- **created_by** (String)
 - **created_on** (String)
 - **custom_config** (String)
-- **dns_domain** (String)
-- **fault_count** (String)
 - **fqdn** (String)
-- **gl_account** (String)
 - **id** (String) The ID of this resource.
 - **install_status** (String)
-- **instance_state** (String)
 - **ip_address** (String)
-- **mac_address** (String)
-- **mod_count** (String)
 - **number** (String)
-- **operational_status** (String)
 - **owned_by** (String)
-- **proxy** (String)
 - **read_only_port** (String)
 - **read_write_port** (String)
-- **repl_master** (String)
-- **repl_master_host_ext** (String)
-- **replication_status** (String)
-- **replication_type** (String)
-- **skip_sync** (String)
-- **ssl_certificate** (String)
-- **ssl_expires_on** (String)
-- **ssl_serial** (String)
-- **updated_by** (String)
 - **updated_on** (String)
 
 <a id="nestedblock--timeouts"></a>

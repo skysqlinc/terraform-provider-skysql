@@ -9,7 +9,6 @@ resource "skysql_service" "wat" {
   replicas        = "0"
   monitor         = "false"
   volume_iops     = "100"
-  volume_type     = "io1"
   maxscale_proxy  = "false"
   tier            = "Foundation"
 }

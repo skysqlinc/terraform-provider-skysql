@@ -91,5 +91,7 @@ jobs:
         # optionally use data from your repository secrets using the
         # following syntax:
         TF_SKYSQL_API_KEY: ${{ secrets.TF_SKYSQL_API_KEY }}
+        TF_SKYSQL_MDBID_URL: https://id-dev.mariadb.com
+        TF_SKYSQL_HOST: https://api.dev.gcp.mariadb.net
       run: |
         go test -v -cover ./internal/provider/

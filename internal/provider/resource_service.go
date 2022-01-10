@@ -188,7 +188,7 @@ func resourceServiceDelete(ctx context.Context, d *schema.ResourceData, meta int
 		return diag.FromErr(err)
 	}
 
-	err = checkAPIStatus(res.StatusCode, res.Body, http.StatusNoContent)
+	err = checkAPIStatus(res.StatusCode, res.Body, http.StatusOK)
 	if err != nil {
 		return diag.FromErr(err)
 	}

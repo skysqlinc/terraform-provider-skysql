@@ -43,7 +43,7 @@ func testAccResourceService(nameSeed string) string {
 		monitor          = "false"
 		volume_iops      = "100"
 		maxscale_proxy   = "false"
-		tier             = "Foundation"
+		tier             = "Power"
 		ssl_tls          = "Enabled"
 		wait_for_install = "false"
 	}`, nameSeed)

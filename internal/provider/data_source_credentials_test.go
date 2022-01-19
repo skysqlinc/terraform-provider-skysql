@@ -25,6 +25,6 @@ func TestAccDataSourceCredentials(t *testing.T) {
 
 const testAccDataSourceCredentials = `
 data "skysql_credentials" "wat" {
-  id = "db00008965"
+  id = "db00011100"
 }
 `

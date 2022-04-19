@@ -31,7 +31,7 @@ func TestAccResourceService(t *testing.T) {
 func testAccResourceService(nameSeed string) string {
 	return fmt.Sprintf(`
 	resource "skysql_service" "wat" {
-		release_version  = "MariaDB Enterprise Server 10.6.4-1"
+		release_version  = "MariaDB Enterprise Server 10.6.7-3"
 		topology         = "Single Node Transactions"
 		size             = "Sky-2x4"
 		tx_storage       = "100"

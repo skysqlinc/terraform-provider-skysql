@@ -2,184 +2,156 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
-	"path"
+	"errors"
+	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql"
+	"github.com/matryer/resync"
+	"os"
 
-	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	skysql "github.com/mariadb-corporation/skysql-api-go"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-func init() {
-	// Set descriptions to support markdown syntax, this will be used in document generation
-	// and the language server.
-	schema.DescriptionKind = schema.StringMarkdown
+// Ensure skySQLProvider satisfies various provider interfaces.
+var _ provider.Provider = &skySQLProvider{}
 
-	// Customize the content of descriptions when output. For example you can add defaults on
-	// to the exported descriptions if present.
-	// schema.SchemaDescriptionBuilder = func(s *schema.Schema) string {
-	// 	desc := s.Description
-	// 	if s.Default != nil {
-	// 		desc += fmt.Sprintf(" Defaults to `%v`.", s.Default)
-	// 	}
-	// 	return strings.TrimSpace(desc)
-	// }
+var configureOnce resync.Once
+
+// skySQLProvider defines the provider implementation.
+type skySQLProvider struct {
+	// version is set to the provider version on release, "dev" when the
+	// provider is built and ran locally, and "test" when running acceptance
+	// testing.
+	version string
 }
 
-func New(version string) func() *schema.Provider {
-	return func() *schema.Provider {
-		p := &schema.Provider{
-			Schema: map[string]*schema.Schema{
-				"api_key": {
-					Type:        schema.TypeString,
-					Required:    true,
-					Optional:    false,
-					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_API_KEY", nil),
-					Sensitive:   true,
-				},
-				"mdbid_url": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_MDBID_URL", "https://id.mariadb.com"),
-				},
-				"host": {
-					Type:        schema.TypeString,
-					Optional:    true,
-					DefaultFunc: schema.EnvDefaultFunc("TF_SKYSQL_HOST", "https://api.skysql.net"),
-				},
-			},
-			DataSourcesMap: map[string]*schema.Resource{
-				"skysql_service":     dataSourceService(),
-				"skysql_credentials": dataSourceCredentials(),
-			},
-			ResourcesMap: map[string]*schema.Resource{
-				"skysql_service": resourceService(),
-			},
-		}
+// SkySQLProviderModel describes the provider data model.
+type SkySQLProviderModel struct {
+	BaseURL     types.String `tfsdk:"base_url"`
+	AccessToken types.String `tfsdk:"access_token"`
+}
 
-		p.ConfigureContextFunc = configure(version, p)
+func (p *skySQLProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "skysql"
+	resp.Version = p.version
+}
 
-		return p
+func (p *skySQLProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "The SkySQL terraform provider",
+		Attributes: map[string]schema.Attribute{
+			"access_token": schema.StringAttribute{
+				MarkdownDescription: "SkySQL API access token",
+				Optional:            true,
+				Sensitive:           true,
+			},
+			"base_url": schema.StringAttribute{
+				Optional: true,
+			},
+		},
 	}
 }
 
-func configure(version string, p *schema.Provider) func(context.Context, *schema.ResourceData) (interface{}, diag.Diagnostics) {
-	return func(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
-		var diags diag.Diagnostics
+// Function to read environment with a default value
+func getEnv(key, fallback string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+	return value
+}
 
-		apiKey := d.Get("api_key").(string)
-		if apiKey == "" {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "API Key not provided for SkySQL client",
-				Detail:   "An API Key generated from MariaDB ID must be provided to authenticate",
-			})
-			return nil, diags
-		}
+func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	accessToken := os.Getenv("TF_SKYSQL_API_ACCESS_TOKEN")
+	baseURL := getEnv("TF_SKYSQL_API_BASE_URL", "https://api.mariadb.com")
 
-		mdbid_url := d.Get("mdbid_url").(string)
-		url, err := url.Parse(mdbid_url)
-		if err != nil || url.String() == "" {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to parse MariaDB ID url",
-				Detail:   fmt.Sprintf("An invalid url was provided for MariaDB ID %s", err),
-			})
-			return nil, diags
-		}
+	var data SkySQLProviderModel
 
-		url.Path = path.Join(url.Path, "/api/v1/token")
-		req, _ := http.NewRequest("POST", url.String(), nil)
-		req.Header.Add("Authorization", "Token "+apiKey)
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
-		httpClient := &http.Client{}
-		res, err := httpClient.Do(req)
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to authenticate with MariaDB ID",
-				Detail:   fmt.Sprintf("An invalid url was provided for MariaDB ID %s", err),
-			})
-			return nil, diags
-		}
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-		defer res.Body.Close()
+	// Check configuration data, which should take precedence over
+	// environment variable data, if found.
+	if data.AccessToken.ValueString() != "" {
+		accessToken = data.AccessToken.ValueString()
+	}
 
-		if res.StatusCode != http.StatusOK {
-			body, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				diags = append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "Unable to read response from MariaDB ID",
-					Detail:   fmt.Sprintf("Failure occurred during authentication attempt %s", err),
-				})
-				return nil, diags
-			}
+	if data.BaseURL.ValueString() != "" {
+		baseURL = data.BaseURL.ValueString()
+	}
 
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to authenticate with MariaDB ID",
-				Detail:   fmt.Sprintf("Failure occurred during authentication attempt. URL: %v, Status: %v, Body: %v", url, res.StatusCode, string(body)),
-			})
-			return nil, diags
-		}
-
-		var resData struct {
-			Token string `json:"token"`
-		}
-		err = json.NewDecoder(res.Body).Decode(&resData)
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to authenticate with MariaDB ID",
-				Detail:   fmt.Sprintf("Failure to decode token response %s", err),
-			})
-			return nil, diags
-		}
-
-		slt := resData.Token
-		if slt == "" {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to authenticate with MariaDB ID",
-				Detail:   fmt.Sprintf("Token not in response from MariaDB ID. %v", resData),
-			})
-			return nil, diags
-		}
-
-		bearerTokenProvider, err := securityprovider.NewSecurityProviderBearerToken(slt)
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to authenticate with MariaDB ID",
-				Detail:   fmt.Sprintf("Failure to instantiate bearer token provider %s", err),
-			})
-			return nil, diags
-		}
-
-		userAgent := p.UserAgent("terraform-provider-skysql", version)
-		client, err := skysql.NewClient(
-			d.Get("host").(string),
-			skysql.WithRequestEditorFn(bearerTokenProvider.Intercept),
-			skysql.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
-				req.Header.Set("User-Agent", userAgent)
-				return nil
-			}),
+	if accessToken == "" {
+		resp.Diagnostics.AddError(
+			"Missing SkySQL Access Token Configuration",
+			"While configuring the provider, the API access token was not found in "+
+				"the TF_SKYSQL_API_ACCESS_TOKEN environment variable or provider "+
+				"configuration block access_token attribute.",
 		)
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to create MariaDB ID client",
-				Detail:   fmt.Sprintf("Failure to instantiate client %s", err),
-			})
-			return nil, diags
-		}
+		// Not returning early allows the logic to collect all errors.
+	}
 
-		return client, nil
+	if baseURL == "" {
+		resp.Diagnostics.AddError(
+			"Missing Endpoint Configuration",
+			"While configuring the provider, the endpoint was not found in "+
+				"the TF_SKYSQL_API_BASE_URL environment variable or provider "+
+				"configuration block base_url attribute.",
+		)
+		// Not returning early allows the logic to collect all errors.
+	}
+
+	client := skysql.New(baseURL, accessToken)
+
+	configureOnce.Do(func() {
+		_, err := client.GetVersions(ctx, skysql.WithPageSize(1))
+		if err != nil {
+			if errors.Is(err, skysql.ErrorUnauthorized) {
+				resp.Diagnostics.AddError(
+					"Unable to connect to SkySQL",
+					"While configuring the provider, the API access token was not valid.",
+				)
+				return
+			}
+			resp.Diagnostics.AddError(
+				"Unable to connect to SkySQL",
+				"While configuring the provider, the API returns error: "+err.Error(),
+			)
+		}
+	})
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.DataSourceData = client
+	resp.ResourceData = client
+}
+
+func (p *skySQLProvider) Resources(ctx context.Context) []func() resource.Resource {
+	return []func() resource.Resource{
+		NewServiceResource,
+		NewServiceAllowListResource,
+	}
+}
+
+func (p *skySQLProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	return []func() datasource.DataSource{
+		NewProjectsDataSource,
+		NewVersionsDataSource,
+		NewServiceDataSource,
+		NewCredentialsDataSource,
+	}
+}
+
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
+		return &skySQLProvider{
+			version: version,
+		}
 	}
 }

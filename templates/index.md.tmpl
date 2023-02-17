@@ -4,7 +4,7 @@ description: |-
    The MariaDB SkySQL Terraform Provider allows database services in MariaDB SkySQL to be managed using Terraform.
 ---
 
-# SKYSQL-BETA Provider
+# {{ .ProviderShortName | upper }} Provider
 
 The current implementation is in Technical preview and will become available in the Terraform registry in the near future.
 It allows configuring any SkySQL DB topology using the Terraform's declarative language.
@@ -23,7 +23,7 @@ Use the navigation to the left to read about the available resources.
 
 ### Automated Installation (Recommended)
 
-The Terraform Provider for SkySQL listed on the [Terraform Registry](https://registry.terraform.io/providers/mariadb-corporation/skysql-beta/).
+The Terraform Provider for SkySQL listed on the [Terraform Registry](https://registry.terraform.io/providers/mariadb-corporation/{{.ProviderShortName}}/).
 
 #### Create a Terraform configuration file
 
@@ -35,7 +35,7 @@ Providers listed on the Terraform Registry can be automatically downloaded when 
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/skysql-beta"
+      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
     }
   }
 }
@@ -49,7 +49,7 @@ You can use `version` locking and operators to require specific versions of the 
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/skysql-beta"
+      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
        version = ">= x.y.z"
     }
   }
@@ -58,7 +58,7 @@ terraform {
 
 ### Manual Installation
 
-The latest release of the provider can be found on [`terraform-provider-skysql-beta/releases`](https://github.com/mariadb-corporation/terraform-provider-skysql-beta/releases). You can download the appropriate version of the provider for your operating system using a command line shell or a browser.
+The latest release of the provider can be found on [`terraform-provider-skysql-beta/releases`](https://github.com/mariadb-corporation/{{.ProviderName}}/releases). You can download the appropriate version of the provider for your operating system using a command line shell or a browser.
 
 This can be useful in environments that do not allow direct access to the Internet.
 
@@ -72,7 +72,7 @@ The following examples use Bash on Linux (x64).
     RELEASE=x.y.z
     OS=linux
     ARCH=amd64
-    wget -q https://github.com/mariadb-corporation/terraform-provider-skysql-beta/releases/download/${RELEASE}/terraform-provider-skysql-beta_${RELEASE}_{OS}_{ARCH}.zip
+    wget -q https://github.com/mariadb-corporation/{{.ProviderName}}/releases/download/${RELEASE}/{{.ProviderName}}_${RELEASE}_{OS}_{ARCH}.zip
     ```
 
 2. Create a directory for the provider.
@@ -84,20 +84,20 @@ The following examples use Bash on Linux (x64).
     > `<registry>/<namespace>/<service>/<version>/<OS_arch>/`
 
     ```console
-    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/skysql-beta
+    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}
     ```
 
 3. Copy the plugin to a target system and move to the Terraform plugins directory.
 
     ```console
-    mv terraform-provider-skysql-beta_${RELEASE}_${OS}_${ARCH}.zip ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/skysql-beta
+    mv {{.ProviderName}}_${RELEASE}_${OS}_${ARCH}.zip ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}
 
     ```
 
 4. Verify the presence of the plugin in the Terraform plugins directory.
 
     ```console
-    ls ~/.terraform.d/plugins/local/mariadb-corporation/skysql-beta/
+    ls ~/.terraform.d/plugins/local/mariadb-corporation/{{.ProviderShortName}}/
     ```
 
 #### macOS
@@ -114,7 +114,7 @@ The following example uses Bash (default) on macOS (ARM).
 
     ```console
     export RELEASE=x.y.z
-    wget -q https://github.com/mariadb-corporation/terraform-provider-skysql-beta/releases/download/v${RELEASE}/terraform-provider-skysql-beta_${RELEASE}_darwin_arm64.zip
+    wget -q https://github.com/mariadb-corporation/{{.ProviderName}}/releases/download/v${RELEASE}/terraform-provider-{{.ProviderShortName}}_${RELEASE}_darwin_arm64.zip
     ```
 
 3. Create a directory for the provider.
@@ -126,30 +126,30 @@ The following example uses Bash (default) on macOS (ARM).
     > `<registry>/<namespace>/<service>/<version>/<OS_arch>/`
 
     ```console
-    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/skysql-beta/
+    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}/
     ```
 
 4. Copy the plugin to a target system and move to the Terraform plugins directory.
 
     ```console
-    mv terraform-provider-skysql-beta_${RELEASE}_darwin_arm64.zip ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/skysql-beta/
+    mv {{.ProviderName}}_${RELEASE}_darwin_arm64.zip ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}/
     ```
 
 5. Verify the presence of the plugin in the Terraform plugins directory.
 
     ```console
-    ls ~/.terraform.d/plugins/local/mariadb-corporation/skysql-beta/
+    ls ~/.terraform.d/plugins/local/mariadb-corporation/{{.ProviderShortName}}/
     ```
 
 ## Configure the Terraform Configuration Files
 
-In order to use the `skysql-beta` terraform provider, you need to configure the provider in your Terraform configuration files.
+In order to use the `{{.ProviderShortName}}` terraform provider, you need to configure the provider in your Terraform configuration files.
 
 ```hcl
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/skysql-beta"
+      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
     }
   }
 }
@@ -161,7 +161,7 @@ or you can specify the provider version.
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/skysql-beta"
+      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
       version = ">= x.y.z"
     }
   }
@@ -178,9 +178,9 @@ $ terraform init
 Initializing the backend...
 
 Initializing provider plugins...
-- Finding latest version of mariadb-corporation/skysql-beta...
-- Installing mariadb-corporation/skysql-beta x.y.z...
-- Installed mariadb-corporation/skysql-beta x.y.z (unauthenticated)
+- Finding latest version of mariadb-corporation/{{.ProviderShortName}}...
+- Installing mariadb-corporation/{{.ProviderShortName}} x.y.z...
+- Installed mariadb-corporation/{{.ProviderShortName}} x.y.z (unauthenticated)
 ...
 
 Terraform has been successfully initialized!
@@ -196,7 +196,7 @@ To find the provider version, navigate to the working directory of your Terrafor
 $ terraform version
 Terraform x.y.z
 on darwin_arm64
-+ provider registry.terraform.io/mariadb-corporation/skysql-beta x.y.z
++ provider registry.terraform.io/mariadb-corporation/{{.ProviderShortName}} x.y.z
 ```
 
 ## Create a new SkySQL service
@@ -211,80 +211,7 @@ on darwin_arm64
 
 3. Create a new SkySQL service using the example below:
 
-```terraform
-provider "skysql" {}
-
-# Retrieve the list of available versions for each topology like standalone, masterslave, xpand-direct etc
-data "skysql_versions" "default" {
-  topology = "es-single"
-}
-
-
-# Retrieve the list of projects. Project is a way of grouping the services.
-# Note: Next release will make project_id optional in the create service api
-data "skysql_projects" "default" {}
-
-output "skysql_projects" {
-  value = data.skysql_projects.default
-}
-
-# Create a service
-resource "skysql_service" "default" {
-  service_type   = "transactional"
-  topology       = "es-single"
-  cloud_provider = "gcp"
-  region         = "us-central1"
-  name           = "myservice"
-  architecture   = "amd64"
-  nodes          = 1
-  size           = "sky-2x8"
-  storage        = 100
-  ssl_enabled    = true
-  version        = data.skysql_versions.default.versions[0].name
-  # [Optional] Below you can find example with optional parameters how to configure a privatelink connection
-  endpoint_mechanism        = "privatelink"
-  endpoint_allowed_accounts = ["gcp-project-id"]
-  # [/Optional]
-  # The service create is an asynchronous operation.
-  # if you want to wait for the service to be created set wait_for_creation to true
-  wait_for_creation = true
-  # You need to add your ip address in the CIRD format to allow list in order to connect to the service
-  allow_list = [
-    {
-      "ip" : "104.28.203.45/32",
-      "comment" : "homeoffice"
-    }
-  ]
-}
-
-# Retrieve the service default credentials.
-# When the service is created please change the default credentials
-data "skysql_credentials" "default" {
-  service_id = skysql_service.default.id
-}
-
-# Retrieve the service details
-data "skysql_service" "default" {
-  service_id = skysql_service.default.id
-}
-
-# Show the service details
-output "skysql_service" {
-  value = data.skysql_service.default
-}
-
-# Show the service credentials
-output "skysql_credentials" {
-  value     = data.skysql_credentials.default
-  sensitive = true
-}
-
-
-# Example how you can generate a command line for the database connection
-output "skysql_cmd" {
-  value = "mariadb --host ${data.skysql_service.default.fqdn} --port 3306 --user ${data.skysql_service.default.service_id} -p --ssl-ca ~/Downloads/skysql_chain_2022.pem"
-}
-```
+{{ tffile "examples/provider/provider.tf" }}
 
 
 Run `terraform plan` to see the changes that will be made.

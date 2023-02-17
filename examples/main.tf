@@ -1,35 +1,54 @@
 terraform {
   required_providers {
     skysql = {
-      source  = "registry.terraform.io/mariadb-corporation/skysql"
-      version = "0.0.1"
+      source = "registry.terraform.io/mariadb-corporation/skysql-beta"
     }
   }
 }
-provider "skysql" {
-  mdbid_url = "https://id-test.mariadb.com"
-  host      = "https://api.test.gcp.mariadb.net"
-}
-data "skysql_credentials" "wat" {
-  id = skysql_service.wat.id
-}
-output "wat_credential" {
-  value     = data.skysql_credentials.wat
-  sensitive = true
+
+provider "skysql" {}
+
+
+data "skysql_versions" "default" {
+  topology = "es-single"
 }
 
-resource "skysql_service" "wat" {
-  release_version = "MariaDB Enterprise Server 10.6.4-1"
-  topology        = "Single Node Transactions"
-  size            = "Sky-2x4"
-  tx_storage      = "100"
-  maxscale_config = ""
-  name            = "standalone-example"
-  region          = "ca-central-1"
-  cloud_provider  = "Amazon AWS"
-  replicas        = "0"
-  monitor         = "false"
-  volume_iops     = "100"
-  maxscale_proxy  = "false"
-  tier            = "Foundation"
+
+resource "skysql_service" "default" {
+  service_type   = "transactional"
+  topology       = "es-single"
+  cloud_provider = "aws"
+  region         = "us-east-2"
+  name           = "myservice"
+  architecture   = "amd64"
+  nodes          = 1
+  size           = "sky-2x8"
+  storage        = 100
+  ssl_enabled    = true
+  version        = data.skysql_versions.default.versions[0].name
+  volume_type    = "gp2"
+  allow_list = [
+    {
+      "ip" : "127.0.0.1/32",
+      "comment" : "localhost"
+    }
+  ]
+  wait_for_creation = true
+}
+
+data "skysql_credentials" "default" {
+  service_id = skysql_service.default.id
+}
+
+data "skysql_service" "default" {
+  service_id = skysql_service.default.id
+}
+
+output "skysql_service" {
+  value = data.skysql_service.default
+}
+
+output "skysql_credentials" {
+  value     = data.skysql_credentials.default
+  sensitive = true
 }

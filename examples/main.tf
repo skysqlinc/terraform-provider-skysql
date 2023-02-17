@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/skysql-beta"
+      source = "registry.terraform.io/mariadb-corporation/skysql"
     }
   }
 }

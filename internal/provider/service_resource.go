@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"regexp"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -20,11 +24,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	sdkresource "github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql"
-	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql/provisioning"
-	"reflect"
-	"regexp"
-	"time"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
 )
 
 const defaultCreateTimeout = 60 * time.Minute

@@ -1,5 +1,5 @@
 ---
-page_title: "skysql_allow_list Resource - terraform-provider-skysql-beta"
+page_title: "skysql_allow_list Resource - terraform-provider-skysql"
 subcategory: ""
 description: |-
   Manages the allow list for a service

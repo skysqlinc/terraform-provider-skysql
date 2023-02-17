@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces

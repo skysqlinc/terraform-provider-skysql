@@ -3,12 +3,13 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net/url"
+
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql"
-	"net/url"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces

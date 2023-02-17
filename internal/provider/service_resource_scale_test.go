@@ -3,17 +3,18 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql"
-	"github.com/mariadb-corporation/terraform-provider-skysql-beta/internal/skysql/provisioning"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServiceResourceScaleTest(t *testing.T) {

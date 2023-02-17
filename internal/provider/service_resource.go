@@ -26,6 +26,9 @@ import (
 	sdkresource "github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
+	"reflect"
+	"regexp"
+	"time"
 )
 
 const defaultCreateTimeout = 60 * time.Minute

@@ -14,7 +14,6 @@ require (
 	github.com/hashicorp/terraform-plugin-log v0.7.0
 	github.com/hashicorp/terraform-plugin-sdk v1.17.2
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.24.1
-	github.com/mariadb-corporation/skysql-api-go v0.0.26
 	github.com/matryer/resync v0.0.0-20161211202428-d39c09a11215
 	github.com/stretchr/testify v1.7.2
 )

@@ -35,7 +35,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/mariadb-corporation/skysql-beta",
+		Address: "registry.terraform.io/mariadb-corporation/skysql",
 		Debug:   debug,
 	}
 

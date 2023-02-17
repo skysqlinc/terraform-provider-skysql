@@ -3,6 +3,10 @@ package skysql
 import (
 	"context"
 	"errors"
+	"github.com/go-resty/resty/v2"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/organization"
+	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
 	"net/http"
 	"net/url"
 	"strconv"

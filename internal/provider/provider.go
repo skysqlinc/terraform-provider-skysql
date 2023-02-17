@@ -7,9 +7,6 @@ import (
 	"github.com/matryer/resync"
 	"os"
 
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
-	"github.com/matryer/resync"
-
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"

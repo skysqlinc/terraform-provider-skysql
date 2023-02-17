@@ -14,14 +14,6 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
-	"github.com/stretchr/testify/require"
 )
 
 func TestServiceResourceAllowlistUpdate(t *testing.T) {

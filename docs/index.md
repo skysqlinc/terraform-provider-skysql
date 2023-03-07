@@ -6,8 +6,7 @@ description: |-
 
 # SKYSQL Provider
 
-The current implementation is in Technical preview and will become available in the Terraform registry in the near future.
-It allows configuring any SkySQL DB topology using the Terraform's declarative language.
+The provider allows configuring any SkySQL DB topology using the Terraform's declarative language.
 
 * It automatically provisions new SkySQL services or updates existing ones when the Terraform configuration is applied
 
@@ -205,9 +204,9 @@ on darwin_arm64
 
 2. Set environment variables:
 
-    ```bash
-        export TF_SKYSQL_API_ACCESS_TOKEN=[SKYSQL API access token]
-    ```
+```bash
+$ export TF_SKYSQL_API_ACCESS_TOKEN=my-access-token
+```
 
 3. Create a new SkySQL service using the example below:
 
@@ -291,13 +290,105 @@ Run `terraform plan` to see the changes that will be made.
 
 If you agree with the changes, run `terraform apply` to create the service.
 
+## Obtain Connection Credentials
+
+Obtain the connection credentials for the new SkySQL service by executing the following commands:
+
+1. Download [skysql_chain_2022.pem](https://supplychain.mariadb.com/skysql/skysql_chain_2022.pem), which contains the Certificate Authority chain that is used to verify the server's certificate for TLS:
+
+```bash
+$ curl https://supplychain.mariadb.com/skysql/skysql_chain_2022.pem --output ~/Downloads/skysql_chain_2022.pem
+```
+
+2. Obtain the connection command from the terraform.tfstate file:
+
+```bash
+$ jq ".outputs.skysql_cmd" terraform.tfstate
+```
+3. Obtain the user password from the terraform.tfstate file:
+
+```bash
+$ jq ".outputs.skysql_credentials.value.password" terraform.tfstate
+```
+```bash
+"..password string.."
+```
+
+## Connect to the SkySQL service
+
+Connect to the SkySQL service by executing the connection command from the previous step:
+
+```bash
+$ mariadb --host dbtgf06833805.sysp0000.db.skysql.net --port 3306 --user dbtgf06833805 -p --ssl-ca ~/Downloads/skysql_chain_2022.pem
+```
+
+When prompted, type the password and press enter to connect:
+
+```bash
+Enter password:
+Welcome to the MariaDB monitor.  Commands end with ; or \g.
+Your MariaDB connection id is 1059
+Server version: 10.6.11-6-MariaDB-enterprise-log MariaDB Enterprise Server
+
+Copyright (c) 2000, 2018, Oracle, MariaDB Corporation Ab and others.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+MariaDB [(none)]>
+```
+
+When you are done executing queries, terminate the connection using the exit command:
+
+```bash
+MariaDB [(none)]> exit
+```
+```bash
+Bye
+```
 ## Destroy the SkySQL service
 
 Run `terraform destroy` to destroy the service.
 
-## Limitations
+## SkySQL provider configuration
 
-* The terraform resource `skysql_service` doesn't support updates. If you need to change the configuration of a service, you need to destroy the service and create a new one.
+Configuration for the SkySQL provider can be derived from several sources,
+which are applied in the following order:
+
+1. Parameters in the provider configuration
+1. Environment variables
+
+### Provider Configuration
+
+**Warning:** Hard-coded credentials are not recommended in any Terraform
+configuration and risks secret leakage should this file ever be committed to a
+public version control system.
+
+Credentials can be provided by adding an `access_token` to the provider configuration block.
+
+Usage:
+
+```terraform
+
+provider "skysql" {
+  access_token = "my-access-token"
+}
+```
+
+### Environment Variables
+
+SkySQL Access token can be provided by using the `TF_SKYSQL_API_ACCESS_TOKEN` environment variable.
+
+For example:
+
+```terraform
+provider "skysql" {}
+```
+
+```sh
+$ export TF_SKYSQL_API_ACCESS_TOKEN="my-access-token"
+
+$ terraform plan
+```
 
 ## Secrets and Terraform state
 

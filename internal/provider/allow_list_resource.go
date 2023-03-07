@@ -198,7 +198,7 @@ func (r *ServiceAllowListResource) Read(ctx context.Context, req resource.ReadRe
 	} else {
 		data.AllowList = make([]AllowListModel, len(allowListResp[0].AllowList))
 		if len(allowListResp[0].AllowList) > 0 {
-			for i := range allowListResp {
+			for i := range allowListResp[0].AllowList {
 				data.AllowList[i].IPAddress = types.StringValue(allowListResp[0].AllowList[i].IPAddress)
 				data.AllowList[i].Comment = types.StringValue(allowListResp[0].AllowList[i].Comment)
 			}

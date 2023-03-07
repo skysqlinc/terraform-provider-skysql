@@ -168,21 +168,16 @@ resource "skysql_service" default {
 					json.NewEncoder(w).Encode(service)
 					w.WriteHeader(http.StatusCreated)
 				})
-				expectRequest(func(w http.ResponseWriter, req *http.Request) {
-					r.Equal(http.MethodGet, req.Method)
-					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
-					w.Header().Set("Content-Type", "application/json")
-					service.Status = "ready"
-					json.NewEncoder(w).Encode(service)
-					w.WriteHeader(http.StatusOK)
-				})
-				expectRequest(func(w http.ResponseWriter, req *http.Request) {
-					r.Equal(http.MethodGet, req.Method)
-					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
-					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(service)
-					w.WriteHeader(http.StatusOK)
-				})
+				for i := 0; i < 3; i++ {
+					expectRequest(func(w http.ResponseWriter, req *http.Request) {
+						r.Equal(http.MethodGet, req.Method)
+						r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
+						w.Header().Set("Content-Type", "application/json")
+						service.Status = "ready"
+						json.NewEncoder(w).Encode(service)
+						w.WriteHeader(http.StatusOK)
+					})
+				}
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
 					r.Equal(http.MethodDelete, req.Method)
 					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
@@ -396,24 +391,16 @@ resource "skysql_service" default {
 					json.NewEncoder(w).Encode(service)
 					w.WriteHeader(http.StatusCreated)
 				})
-				expectRequest(func(w http.ResponseWriter, req *http.Request) {
-					r.Equal(http.MethodGet, req.Method)
-					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
-					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(&provisioning.Service{
-						ID:     serviceID,
-						Status: "ready",
+				for i := 0; i < 3; i++ {
+					expectRequest(func(w http.ResponseWriter, req *http.Request) {
+						r.Equal(http.MethodGet, req.Method)
+						r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
+						w.Header().Set("Content-Type", "application/json")
+						service.Status = "ready"
+						json.NewEncoder(w).Encode(service)
+						w.WriteHeader(http.StatusOK)
 					})
-					w.WriteHeader(http.StatusOK)
-				})
-				expectRequest(func(w http.ResponseWriter, req *http.Request) {
-					r.Equal(http.MethodGet, req.Method)
-					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
-					w.Header().Set("Content-Type", "application/json")
-					service.Status = "ready"
-					json.NewEncoder(w).Encode(&service)
-					w.WriteHeader(http.StatusOK)
-				})
+				}
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
 					r.Equal(http.MethodDelete, req.Method)
 					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)

@@ -106,7 +106,7 @@ func TestServiceResourceScaleTest(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	// Refresh state
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		expectRequest(func(w http.ResponseWriter, req *http.Request) {
 			r.Equal(
 				fmt.Sprintf("%s %s/%s", http.MethodGet, "/provisioning/v1/services", serviceID),

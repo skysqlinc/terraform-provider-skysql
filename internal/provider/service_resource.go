@@ -88,6 +88,7 @@ type ServiceResourceModel struct {
 	AllowList          types.List     `tfsdk:"allow_list"`
 	MaxscaleNodes      types.Int64    `tfsdk:"maxscale_nodes"`
 	MaxscaleSize       types.String   `tfsdk:"maxscale_size"`
+	FQDN               types.String   `tfsdk:"fqdn"`
 }
 
 // ServiceResourceNamedPortModel is an endpoint port
@@ -308,6 +309,15 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
+			"fqdn": schema.StringAttribute{
+				Required: false,
+				Optional: false,
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Description: "The fully qualified domain name of the service. The FQDN is only available when the service is in the ready state",
+			},
 		},
 		Blocks: map[string]schema.Block{
 			"timeouts": timeouts.Block(ctx, timeouts.Opts{
@@ -415,6 +425,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	// save into the Terraform state.
 	data.ID = types.StringValue(service.ID)
 	data.Name = types.StringValue(service.Name)
+	data.FQDN = types.StringValue(service.FQDN)
 
 	tflog.Trace(ctx, "created a resource")
 
@@ -481,7 +492,10 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 
 		if err != nil {
 			resp.Diagnostics.AddError("Error creating service", fmt.Sprintf("Unable to create service, got error: %s", err))
+			return
 		}
+		r.readServiceState(ctx, data)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 	}
 }
 
@@ -538,6 +552,7 @@ func (r *ServiceResource) readServiceState(ctx context.Context, data *ServiceRes
 		return err
 	}
 	data.ID = types.StringValue(service.ID)
+	data.FQDN = types.StringValue(service.FQDN)
 	data.Name = types.StringValue(service.Name)
 	data.SSLEnabled = types.BoolValue(service.SSLEnabled)
 	data.ServiceType = types.StringValue(service.ServiceType)

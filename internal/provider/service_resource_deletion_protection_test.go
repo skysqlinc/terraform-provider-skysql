@@ -97,7 +97,7 @@ func TestServiceResourceDeletionProtection(t *testing.T) {
 		json.NewEncoder(w).Encode(service)
 		w.WriteHeader(http.StatusCreated)
 	})
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		// Get service status
 		expectRequest(func(w http.ResponseWriter, req *http.Request) {
 			r.Equal(http.MethodGet, req.Method)

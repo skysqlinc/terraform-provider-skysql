@@ -72,6 +72,7 @@ resource "skysql_service" "default" {
 
 ### Read-Only
 
+- `fqdn` (String) The fully qualified domain name of the service. The FQDN is only available when the service is in the ready state
 - `id` (String) The ID of the service
 
 <a id="nestedatt--allow_list"></a>

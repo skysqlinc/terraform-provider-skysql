@@ -57,7 +57,7 @@ terraform {
 
 ### Manual Installation
 
-The latest release of the provider can be found on [`terraform-provider-skysql-beta/releases`](https://github.com/mariadb-corporation/terraform-provider-skysql/releases). You can download the appropriate version of the provider for your operating system using a command line shell or a browser.
+The latest release of the provider can be found on [`terraform-provider-skysql/releases`](https://github.com/mariadb-corporation/terraform-provider-skysql/releases). You can download the appropriate version of the provider for your operating system using a command line shell or a browser.
 
 This can be useful in environments that do not allow direct access to the Internet.
 

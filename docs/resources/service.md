@@ -48,9 +48,10 @@ resource "skysql_service" "default" {
 
 - `allow_list` (Attributes List) The list of IP addresses with comments to allow access to the service (see [below for nested schema](#nestedatt--allow_list))
 - `architecture` (String) The architecture of the service. Valid values are: amd64 or arm64
+- `availability_zone` (String) The availability zone of the service
 - `deletion_protection` (Boolean) Whether to enable deletion protection. Valid values are: true or false. Default is true
 - `endpoint_allowed_accounts` (List of String) The list of cloud accounts (aws account ids or gcp projects) that are allowed to access the service
-- `endpoint_mechanism` (String) The endpoint mechanism to use. Valid values are: privatelink or nlb
+- `endpoint_mechanism` (String) The endpoint mechanism to use. Valid values are: privateconnect or nlb
 - `is_active` (Boolean) Whether the service is active
 - `maxscale_nodes` (Number) The number of MaxScale nodes
 - `maxscale_size` (String) The size of the MaxScale nodes. Valid values are: sky-2x4, sky-2x8 etc
@@ -72,6 +73,7 @@ resource "skysql_service" "default" {
 
 ### Read-Only
 
+- `endpoint_service` (String) The endpoint service name of the service, when mechanism is a privateconnect.
 - `fqdn` (String) The fully qualified domain name of the service. The FQDN is only available when the service is in the ready state
 - `id` (String) The ID of the service
 

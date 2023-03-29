@@ -136,6 +136,7 @@ func (p *skySQLProvider) Resources(ctx context.Context) []func() resource.Resour
 	return []func() resource.Resource{
 		NewServiceResource,
 		NewServiceAllowListResource,
+		NewAutonomousResource,
 	}
 }
 
@@ -145,6 +146,7 @@ func (p *skySQLProvider) DataSources(ctx context.Context) []func() datasource.Da
 		NewVersionsDataSource,
 		NewServiceDataSource,
 		NewCredentialsDataSource,
+		NewAvailabilityZonesDataSource,
 	}
 }
 

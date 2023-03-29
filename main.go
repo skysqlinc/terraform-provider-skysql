@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
-
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/provider"
+	"log"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website

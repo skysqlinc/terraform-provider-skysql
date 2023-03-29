@@ -19,10 +19,10 @@ import (
 func TestServiceResourceDeletionProtection(t *testing.T) {
 	const serviceID = "dbdgf42002418"
 
-	testUrl, expectRequest, close := mockSkySQLAPI(t)
-	defer close()
+	testURL, expectRequest, closeAPI := mockSkySQLAPI(t)
+	defer closeAPI()
 	os.Setenv("TF_SKYSQL_API_ACCESS_TOKEN", "[token]")
-	os.Setenv("TF_SKYSQL_API_BASE_URL", testUrl)
+	os.Setenv("TF_SKYSQL_API_BASE_URL", testURL)
 
 	r := require.New(t)
 
@@ -97,7 +97,7 @@ func TestServiceResourceDeletionProtection(t *testing.T) {
 		json.NewEncoder(w).Encode(service)
 		w.WriteHeader(http.StatusCreated)
 	})
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 4; i++ {
 		// Get service status
 		expectRequest(func(w http.ResponseWriter, req *http.Request) {
 			r.Equal(http.MethodGet, req.Method)
@@ -145,7 +145,7 @@ func TestServiceResourceDeletionProtection(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 6; i++ {
 		expectRequest(func(w http.ResponseWriter, req *http.Request) {
 			r.Equal(
 				fmt.Sprintf("%s %s/%s", http.MethodGet, "/provisioning/v1/services", serviceID),

@@ -19,10 +19,10 @@ import (
 func TestServiceResourceAllowlistUpdate(t *testing.T) {
 	const serviceID = "dbdgf42002418"
 
-	testUrl, expectRequest, close := mockSkySQLAPI(t)
-	defer close()
+	testURL, expectRequest, closeAPI := mockSkySQLAPI(t)
+	defer closeAPI()
 	os.Setenv("TF_SKYSQL_API_ACCESS_TOKEN", "[token]")
-	os.Setenv("TF_SKYSQL_API_BASE_URL", testUrl)
+	os.Setenv("TF_SKYSQL_API_BASE_URL", testURL)
 
 	r := require.New(t)
 
@@ -137,14 +137,6 @@ func TestServiceResourceAllowlistUpdate(t *testing.T) {
 		json.NewEncoder(w).Encode(&service)
 		w.WriteHeader(http.StatusOK)
 	})
-	expectRequest(func(w http.ResponseWriter, req *http.Request) {
-		r.Equal(
-			fmt.Sprintf("%s %s/%s", http.MethodGet, "/provisioning/v1/services", serviceID),
-			fmt.Sprintf("%s %s", req.Method, req.URL.Path))
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(&service)
-		w.WriteHeader(http.StatusOK)
-	})
 	// Update service allowlist
 	expectRequest(func(w http.ResponseWriter, req *http.Request) {
 		r.Equal(
@@ -170,16 +162,19 @@ func TestServiceResourceAllowlistUpdate(t *testing.T) {
 		json.NewEncoder(w).Encode(&service)
 		w.WriteHeader(http.StatusOK)
 	})
-	expectRequest(func(w http.ResponseWriter, req *http.Request) {
-		r.Equal(
-			fmt.Sprintf("%s %s/%s", http.MethodGet, "/provisioning/v1/services", serviceID),
-			fmt.Sprintf("%s %s", req.Method, req.URL.Path))
-		w.Header().Set("Content-Type", "application/json")
-		service.Status = "ready"
-		service.Endpoints[0].AllowList = []provisioning.AllowListItem{}
-		json.NewEncoder(w).Encode(&service)
-		w.WriteHeader(http.StatusOK)
-	})
+
+	for i := 0; i < 2; i++ {
+		expectRequest(func(w http.ResponseWriter, req *http.Request) {
+			r.Equal(
+				fmt.Sprintf("%s %s/%s", http.MethodGet, "/provisioning/v1/services", serviceID),
+				fmt.Sprintf("%s %s", req.Method, req.URL.Path))
+			w.Header().Set("Content-Type", "application/json")
+			service.Status = "ready"
+			service.Endpoints[0].AllowList = []provisioning.AllowListItem{}
+			json.NewEncoder(w).Encode(&service)
+			w.WriteHeader(http.StatusOK)
+		})
+	}
 
 	expectRequest(func(w http.ResponseWriter, req *http.Request) {
 		r.Equal(

@@ -32,6 +32,7 @@ type Service struct {
 	PrimaryHost        string   `json:"primary_host"`
 	MaxscaleNodes      uint     `json:"maxscale_nodes,omitempty"`
 	MaxscaleSize       *string  `json:"maxscale_size,omitempty"`
+	AvailabilityZone   string   `json:"availability_zone,omitempty"`
 }
 
 type Endpoint struct {

@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -31,6 +32,8 @@ import (
 const defaultCreateTimeout = 60 * time.Minute
 const defaultDeleteTimeout = 60 * time.Minute
 const defaultUpdateTimeout = 60 * time.Minute
+const visibilityPrivate = "private"
+const visibilityPublic = "public"
 
 var rxServiceName = regexp.MustCompile("(^[a-z][a-z0-9-]+$)")
 
@@ -39,7 +42,6 @@ var _ resource.Resource = &ServiceResource{}
 var _ resource.ResourceWithImportState = &ServiceResource{}
 var _ resource.ResourceWithConfigure = &ServiceResource{}
 var _ resource.ResourceWithModifyPlan = &ServiceResource{}
-var _ resource.ResourceWithValidateConfig = &ServiceResource{}
 
 var allowListElementType = types.ObjectType{
 	AttrTypes: map[string]attr.Type{
@@ -47,6 +49,8 @@ var allowListElementType = types.ObjectType{
 		"comment": types.StringType,
 	},
 }
+
+var privateConnectMechanisms = []string{"privateconnect", "privatelink"}
 
 func NewServiceResource() resource.Resource {
 	return &ServiceResource{}
@@ -79,6 +83,7 @@ type ServiceResourceModel struct {
 	Timeouts           timeouts.Value `tfsdk:"timeouts"`
 	Mechanism          types.String   `tfsdk:"endpoint_mechanism"`
 	AllowedAccounts    types.List     `tfsdk:"endpoint_allowed_accounts"`
+	EndpointService    types.String   `tfsdk:"endpoint_service"`
 	WaitForDeletion    types.Bool     `tfsdk:"wait_for_deletion"`
 	ReplicationEnabled types.Bool     `tfsdk:"replication_enabled"`
 	PrimaryHost        types.String   `tfsdk:"primary_host"`
@@ -89,6 +94,7 @@ type ServiceResourceModel struct {
 	MaxscaleNodes      types.Int64    `tfsdk:"maxscale_nodes"`
 	MaxscaleSize       types.String   `tfsdk:"maxscale_size"`
 	FQDN               types.String   `tfsdk:"fqdn"`
+	AvailabilityZone   types.String   `tfsdk:"availability_zone"`
 }
 
 // ServiceResourceNamedPortModel is an endpoint port
@@ -162,6 +168,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Computed:    true,
 				Description: "The software version",
 				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
@@ -169,12 +176,16 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "The number of nodes",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"architecture": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "The architecture of the service. Valid values are: amd64 or arm64",
 				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
@@ -182,6 +193,9 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "The size of the service. Valid values are: sky-2x4, sky-2x8 etc",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"topology": schema.StringAttribute{
 				Required:    true,
@@ -194,10 +208,16 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 				Description: "The storage size in GB. Valid values are: 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"volume_iops": schema.Int64Attribute{
 				Optional:    true,
 				Description: "The volume IOPS. This is only applicable for AWS",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"ssl_enabled": schema.BoolAttribute{
 				Optional:    true,
@@ -205,6 +225,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description: "Whether to enable SSL. Valid values are: true or false",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
+					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"nosql_enabled": schema.BoolAttribute{
@@ -212,20 +233,33 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description: "Whether to enable NoSQL. Valid values are: true or false",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
+					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"volume_type": schema.StringAttribute{
 				Optional:    true,
 				Description: "The volume type. Valid values are: gp2 and io1. This is only applicable for AWS",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"wait_for_creation": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Whether to wait for the service to be created. Valid values are: true or false",
+				PlanModifiers: []planmodifier.Bool{
+					boolDefault(true),
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"endpoint_mechanism": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The endpoint mechanism to use. Valid values are: privatelink or nlb",
+				Description: "The endpoint mechanism to use. Valid values are: privateconnect or nlb",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"endpoint_allowed_accounts": schema.ListAttribute{
 				Optional:    true,
@@ -234,8 +268,10 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 			"wait_for_deletion": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Whether to wait for the service to be deleted. Valid values are: true or false",
 				PlanModifiers: []planmodifier.Bool{
+					boolDefault(true),
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
@@ -244,6 +280,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description: "Whether to enable global replication. Valid values are: true or false. Works for xpand-direct topology only",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.RequiresReplace(),
+					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"primary_host": schema.StringAttribute{
@@ -251,17 +288,23 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description: "The primary host of the service",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"is_active": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
 				Description: "Whether the service is active",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"wait_for_update": schema.BoolAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "Whether to wait for the service to be updated. Valid values are: true or false",
 				PlanModifiers: []planmodifier.Bool{
+					boolDefault(true),
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
@@ -275,8 +318,8 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 			},
 			"allow_list": schema.ListNestedAttribute{
-				Required:    false,
-				Computed:    true,
+				Required: false,
+				//Computed:    true,
 				Optional:    true,
 				Description: "The list of IP addresses with comments to allow access to the service",
 				NestedObject: schema.NestedAttributeObject{
@@ -294,12 +337,16 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 						},
 					},
 				},
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"maxscale_nodes": schema.Int64Attribute{
 				Optional:    true,
 				Description: "The number of MaxScale nodes",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
+					int64planmodifier.UseStateForUnknown(),
 				},
 			},
 			"maxscale_size": schema.StringAttribute{
@@ -307,6 +354,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description: "The size of the MaxScale nodes. Valid values are: sky-2x4, sky-2x8 etc",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
+					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"fqdn": schema.StringAttribute{
@@ -317,6 +365,22 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Description: "The fully qualified domain name of the service. The FQDN is only available when the service is in the ready state",
+			},
+			"endpoint_service": schema.StringAttribute{
+				Required:    false,
+				Optional:    false,
+				Computed:    true,
+				Description: "The endpoint service name of the service, when mechanism is a privateconnect.",
+			},
+			"availability_zone": schema.StringAttribute{
+				Required:    false,
+				Optional:    true,
+				Computed:    true,
+				Description: "The availability zone of the service",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -350,39 +414,40 @@ func (r *ServiceResource) Configure(ctx context.Context, req resource.ConfigureR
 }
 
 func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data *ServiceResourceModel
+	var state *ServiceResourceModel
 
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	// Read Terraform state into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	createServiceRequest := &provisioning.CreateServiceRequest{
-		Name:               data.Name.ValueString(),
-		ProjectID:          data.ProjectID.ValueString(),
-		ServiceType:        data.ServiceType.ValueString(),
-		Provider:           data.Provider.ValueString(),
-		Region:             data.Region.ValueString(),
-		Version:            data.Version.ValueString(),
-		Nodes:              uint(data.Nodes.ValueInt64()),
-		Architecture:       data.Architecture.ValueString(),
-		Size:               data.Size.ValueString(),
-		Topology:           data.Topology.ValueString(),
-		Storage:            uint(data.Storage.ValueInt64()),
-		VolumeIOPS:         uint(data.VolumeIOPS.ValueInt64()),
-		SSLEnabled:         data.SSLEnabled.ValueBool(),
-		NoSQLEnabled:       data.NoSQLEnabled.ValueBool(),
-		VolumeType:         data.VolumeType.ValueString(),
-		Mechanism:          data.Mechanism.ValueString(),
-		ReplicationEnabled: data.ReplicationEnabled.ValueBool(),
-		PrimaryHost:        data.PrimaryHost.ValueString(),
-		MaxscaleNodes:      uint(data.MaxscaleNodes.ValueInt64()),
+		Name:               state.Name.ValueString(),
+		ProjectID:          state.ProjectID.ValueString(),
+		ServiceType:        state.ServiceType.ValueString(),
+		Provider:           state.Provider.ValueString(),
+		Region:             state.Region.ValueString(),
+		Version:            state.Version.ValueString(),
+		Nodes:              uint(state.Nodes.ValueInt64()),
+		Architecture:       state.Architecture.ValueString(),
+		Size:               state.Size.ValueString(),
+		Topology:           state.Topology.ValueString(),
+		Storage:            uint(state.Storage.ValueInt64()),
+		VolumeIOPS:         uint(state.VolumeIOPS.ValueInt64()),
+		SSLEnabled:         state.SSLEnabled.ValueBool(),
+		NoSQLEnabled:       state.NoSQLEnabled.ValueBool(),
+		VolumeType:         state.VolumeType.ValueString(),
+		Mechanism:          state.Mechanism.ValueString(),
+		ReplicationEnabled: state.ReplicationEnabled.ValueBool(),
+		PrimaryHost:        state.PrimaryHost.ValueString(),
+		MaxscaleNodes:      uint(state.MaxscaleNodes.ValueInt64()),
+		AvailabilityZone:   state.AvailabilityZone.ValueString(),
 	}
 
-	if !data.MaxscaleSize.IsUnknown() && !data.MaxscaleSize.IsNull() && len(data.MaxscaleSize.ValueString()) > 0 {
-		createServiceRequest.MaxscaleSize = toPtr[string](data.MaxscaleSize.ValueString())
+	if !state.MaxscaleSize.IsUnknown() && !state.MaxscaleSize.IsNull() && len(state.MaxscaleSize.ValueString()) > 0 {
+		createServiceRequest.MaxscaleSize = toPtr[string](state.MaxscaleSize.ValueString())
 	} else {
 		createServiceRequest.MaxscaleSize = nil
 	}
@@ -394,9 +459,9 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 	tflog.Debug(ctx, string(b))
 
-	if !data.AllowList.IsUnknown() {
+	if !state.AllowList.IsUnknown() {
 		var allowList []AllowListModel
-		diags := data.AllowList.ElementsAs(ctx, &allowList, false)
+		diags := state.AllowList.ElementsAs(ctx, &allowList, false)
 		if diags.HasError() {
 			resp.Diagnostics.Append(diags...)
 			return
@@ -410,10 +475,12 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
-	diags := data.AllowedAccounts.ElementsAs(ctx, &createServiceRequest.AllowedAccounts, false)
-	if diags.HasError() {
-		resp.Diagnostics.Append(diags...)
-		return
+	if Contains[string](privateConnectMechanisms, state.Mechanism.ValueString()) {
+		diags := state.AllowedAccounts.ElementsAs(ctx, &createServiceRequest.AllowedAccounts, false)
+		if diags.HasError() {
+			resp.Diagnostics.Append(diags...)
+			return
+		}
 	}
 
 	service, err := r.client.CreateService(ctx, createServiceRequest)
@@ -423,57 +490,57 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	// save into the Terraform state.
-	data.ID = types.StringValue(service.ID)
-	data.Name = types.StringValue(service.Name)
-	data.FQDN = types.StringValue(service.FQDN)
+	state.ID = types.StringValue(service.ID)
+	state.Name = types.StringValue(service.Name)
+	state.FQDN = types.StringValue(service.FQDN)
 
 	tflog.Trace(ctx, "created a resource")
 
 	if service.StorageVolume.IOPS > 0 {
-		data.VolumeIOPS = types.Int64Value(int64(service.StorageVolume.IOPS))
+		state.VolumeIOPS = types.Int64Value(int64(service.StorageVolume.IOPS))
 	} else {
-		data.VolumeIOPS = types.Int64Null()
+		state.VolumeIOPS = types.Int64Null()
 	}
 	if service.StorageVolume.VolumeType != "" {
-		data.VolumeType = types.StringValue(service.StorageVolume.VolumeType)
+		state.VolumeType = types.StringValue(service.StorageVolume.VolumeType)
 	} else {
-		data.VolumeType = types.StringNull()
+		state.VolumeType = types.StringNull()
 	}
 
-	data.IsActive = types.BoolValue(service.IsActive)
-	data.Architecture = types.StringValue(service.Architecture)
-	data.Nodes = types.Int64Value(int64(service.Nodes))
-	data.Size = types.StringValue(service.Size)
-	data.Version = types.StringValue(service.Version)
-	data.Storage = types.Int64Value(int64(service.StorageVolume.Size))
-	data.SSLEnabled = types.BoolValue(service.SSLEnabled)
+	state.IsActive = types.BoolValue(service.IsActive)
+	state.Architecture = types.StringValue(service.Architecture)
+	state.Nodes = types.Int64Value(int64(service.Nodes))
+	state.Size = types.StringValue(service.Size)
+	state.Version = types.StringValue(service.Version)
+	state.Storage = types.Int64Value(int64(service.StorageVolume.Size))
+	state.SSLEnabled = types.BoolValue(service.SSLEnabled)
+	state.AvailabilityZone = types.StringValue(service.AvailabilityZone)
 	if len(service.Endpoints) > 0 {
-		data.Mechanism = types.StringValue(service.Endpoints[0].Mechanism)
-		data.AllowedAccounts, _ = types.ListValueFrom(ctx, types.StringType, service.Endpoints[0].AllowedAccounts)
-		data.AllowList, _ = r.allowListToListType(ctx, service.Endpoints[0].AllowList)
+		state.Mechanism = types.StringValue(service.Endpoints[0].Mechanism)
+		r.setAllowAccounts(ctx, state, service.Endpoints[0].AllowedAccounts)
+		state.AllowList, _ = r.allowListToListType(ctx, service.Endpoints[0].AllowList)
+		state.EndpointService = types.StringValue(service.Endpoints[0].EndpointService)
 	}
-	if !(data.MaxscaleSize.IsUnknown() || data.MaxscaleSize.IsNull()) && service.MaxscaleSize != nil {
-		data.MaxscaleSize = types.StringValue(*service.MaxscaleSize)
+	if !(state.MaxscaleSize.IsUnknown() || state.MaxscaleSize.IsNull()) && service.MaxscaleSize != nil {
+		state.MaxscaleSize = types.StringValue(*service.MaxscaleSize)
 	}
-	if !(data.MaxscaleNodes.IsUnknown() || data.MaxscaleNodes.IsNull()) {
-		data.MaxscaleNodes = types.Int64Value(int64(service.MaxscaleNodes))
+	if !(state.MaxscaleNodes.IsUnknown() || state.MaxscaleNodes.IsNull()) {
+		state.MaxscaleNodes = types.Int64Value(int64(service.MaxscaleNodes))
 	}
-	// Save data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	// Save state into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if data.WaitForCreation.ValueBool() {
-
-		createTimeout, diagsErr := data.Timeouts.Create(ctx, defaultCreateTimeout)
+	if state.WaitForCreation.ValueBool() {
+		createTimeout, diagsErr := state.Timeouts.Create(ctx, defaultCreateTimeout)
 		if diagsErr != nil {
 			diagsErr.AddError("Error creating service", fmt.Sprintf("Unable to create service, got error: %s", err))
 			resp.Diagnostics.Append(diagsErr...)
 		}
 
 		err = sdkresource.RetryContext(ctx, createTimeout, func() *sdkresource.RetryError {
-
 			service, err := r.client.GetServiceByID(ctx, service.ID)
 			if err != nil {
 				return sdkresource.NonRetryableError(fmt.Errorf("error retrieving service details: %v", err))
@@ -494,13 +561,28 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 			resp.Diagnostics.AddError("Error creating service", fmt.Sprintf("Unable to create service, got error: %s", err))
 			return
 		}
-		r.readServiceState(ctx, data)
-		resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+		var plan *ServiceResourceModel
+		// Read Terraform state into the model
+		resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		r.readServiceState(ctx, state)
+		r.updateAllowedAccountsState(plan, state)
+		r.updateAllowListState(plan, state)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	}
 }
 
-func (r *ServiceResource) allowListToListType(ctx context.Context, allowList []provisioning.AllowListItem) (types.List, diag.Diagnostics) {
+func (r *ServiceResource) setAllowAccounts(ctx context.Context, data *ServiceResourceModel, allowedAccounts []string) {
+	data.AllowedAccounts, _ = types.ListValueFrom(ctx, types.StringType, allowedAccounts)
+}
 
+func (r *ServiceResource) allowListToListType(ctx context.Context, allowList []provisioning.AllowListItem) (types.List, diag.Diagnostics) {
+	if allowList == nil {
+		return types.ListNull(allowListElementType), nil
+	}
 	allowListModels := make([]AllowListModel, 0, len(allowList))
 	for _, allowListItem := range allowList {
 		allowListModels = append(allowListModels, AllowListModel{
@@ -517,20 +599,20 @@ func (r *ServiceResource) allowListToListType(ctx context.Context, allowList []p
 }
 
 func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data *ServiceResourceModel
+	var state *ServiceResourceModel
 
-	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	// Read Terraform prior state into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	err := r.readServiceState(ctx, data)
+	err := r.readServiceState(ctx, state)
 	if err != nil {
 		if errors.Is(err, skysql.ErrorServiceNotFound) {
 			tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
-				"id": data.ID.ValueString(),
+				"id": state.ID.ValueString(),
 			})
 			resp.State.RemoveResource(ctx)
 
@@ -539,8 +621,13 @@ func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, re
 		resp.Diagnostics.AddError("Can not read service", err.Error())
 		return
 	}
-	// Save updated data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+	var plan *ServiceResourceModel
+	// Read Terraform state into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
+	r.updateAllowedAccountsState(plan, state)
+	r.updateAllowListState(plan, state)
+	// Save updated state into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -564,6 +651,7 @@ func (r *ServiceResource) readServiceState(ctx context.Context, data *ServiceRes
 	data.Size = types.StringValue(service.Size)
 	data.Topology = types.StringValue(service.Topology)
 	data.Storage = types.Int64Value(int64(service.StorageVolume.Size))
+	data.AvailabilityZone = types.StringValue(service.AvailabilityZone)
 	if !data.VolumeIOPS.IsNull() && service.StorageVolume.IOPS > 0 {
 		data.VolumeIOPS = types.Int64Value(int64(service.StorageVolume.IOPS))
 	} else {
@@ -582,8 +670,9 @@ func (r *ServiceResource) readServiceState(ctx context.Context, data *ServiceRes
 	data.SSLEnabled = types.BoolValue(service.SSLEnabled)
 	if len(service.Endpoints) > 0 {
 		data.Mechanism = types.StringValue(service.Endpoints[0].Mechanism)
-		data.AllowedAccounts, _ = types.ListValueFrom(ctx, types.StringType, service.Endpoints[0].AllowedAccounts)
+		r.setAllowAccounts(ctx, data, service.Endpoints[0].AllowedAccounts)
 		data.AllowList, _ = r.allowListToListType(ctx, service.Endpoints[0].AllowList)
+		data.EndpointService = types.StringValue(service.Endpoints[0].EndpointService)
 	}
 	if !(data.MaxscaleSize.IsUnknown() || data.MaxscaleSize.IsNull()) && service.MaxscaleSize != nil {
 		data.MaxscaleSize = types.StringValue(*service.MaxscaleSize)
@@ -611,20 +700,6 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	err := r.readServiceState(ctx, state)
-	if err != nil {
-		if errors.Is(err, skysql.ErrorServiceNotFound) {
-			tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
-				"id": state.ID.ValueString(),
-			})
-			resp.State.RemoveResource(ctx)
-
-			return
-		}
-		resp.Diagnostics.AddError("Can not read service", err.Error())
 		return
 	}
 
@@ -668,6 +743,45 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	err := r.readServiceState(ctx, state)
+	if err != nil {
+		if errors.Is(err, skysql.ErrorServiceNotFound) {
+			tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
+				"id": state.ID.ValueString(),
+			})
+			resp.State.RemoveResource(ctx)
+
+			return
+		}
+		resp.Diagnostics.AddError("Can not read service", err.Error())
+		return
+	}
+
+	r.updateAllowedAccountsState(plan, state)
+	r.updateAllowListState(plan, state)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+}
+
+func (r *ServiceResource) updateAllowedAccountsState(plan *ServiceResourceModel, state *ServiceResourceModel) {
+	if plan.AllowedAccounts.IsNull() && len(state.AllowedAccounts.Elements()) == 0 {
+		state.AllowedAccounts = plan.AllowedAccounts
+	}
+	if len(plan.AllowedAccounts.Elements()) == 0 && state.AllowedAccounts.IsNull() {
+		state.AllowedAccounts = plan.AllowedAccounts
+	}
+}
+
+func (r *ServiceResource) updateAllowListState(plan *ServiceResourceModel, state *ServiceResourceModel) {
+	if plan.AllowList.IsNull() && len(state.AllowList.Elements()) == 0 {
+		state.AllowList = plan.AllowList
+	}
+	if len(plan.AllowList.Elements()) == 0 && state.AllowList.IsNull() {
+		state.AllowList = plan.AllowList
+	}
 }
 
 func (r *ServiceResource) updateServiceStorage(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
@@ -693,7 +807,7 @@ func (r *ServiceResource) updateServiceStorage(ctx context.Context, plan *Servic
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		r.waitForUpdate(ctx, state, err, resp)
+		r.waitForUpdate(ctx, state, resp)
 	}
 }
 
@@ -716,7 +830,7 @@ func (r *ServiceResource) updateNumberOfNodeForService(ctx context.Context, plan
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		r.waitForUpdate(ctx, state, err, resp)
+		r.waitForUpdate(ctx, state, resp)
 	}
 }
 
@@ -739,20 +853,20 @@ func (r *ServiceResource) updateServiceSize(ctx context.Context, plan *ServiceRe
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		r.waitForUpdate(ctx, state, err, resp)
+		r.waitForUpdate(ctx, state, resp)
 	}
 }
 
 func (r *ServiceResource) updateServiceEndpoints(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
 	var planAllowedAccounts []string
-	diag := plan.AllowedAccounts.ElementsAs(ctx, &planAllowedAccounts, false)
-	if diag.HasError() {
+	d := plan.AllowedAccounts.ElementsAs(ctx, &planAllowedAccounts, false)
+	if d.HasError() {
 		return
 	}
 
 	var stateAllowedAccounts []string
-	diag = state.AllowedAccounts.ElementsAs(ctx, &stateAllowedAccounts, false)
-	if diag.HasError() {
+	d = state.AllowedAccounts.ElementsAs(ctx, &stateAllowedAccounts, false)
+	if d.HasError() {
 		return
 	}
 
@@ -765,9 +879,9 @@ func (r *ServiceResource) updateServiceEndpoints(ctx context.Context, plan *Serv
 			"id": state.ID.ValueString(),
 		})
 
-		visibility := "public"
-		if plan.Mechanism.ValueString() == "privatelink" {
-			visibility = "private"
+		visibility := visibilityPublic
+		if Contains[string](privateConnectMechanisms, plan.Mechanism.ValueString()) {
+			visibility = visibilityPrivate
 		} else {
 			planAllowedAccounts = []string{}
 		}
@@ -787,14 +901,15 @@ func (r *ServiceResource) updateServiceEndpoints(ctx context.Context, plan *Serv
 		}
 
 		state.Mechanism = types.StringValue(endpoint.Mechanism)
-		state.AllowedAccounts, _ = types.ListValueFrom(ctx, types.StringType, endpoint.AllowedAccounts)
+		r.setAllowAccounts(ctx, state, endpoint.AllowedAccounts)
+		state.EndpointService = types.StringValue(endpoint.EndpointService)
 
 		// Save updated data into Terraform state
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		r.waitForUpdate(ctx, state, err, resp)
+		r.waitForUpdate(ctx, state, resp)
 		return
 	}
 }
@@ -846,15 +961,13 @@ func (r *ServiceResource) updateAllowList(ctx context.Context, plan *ServiceReso
 				resp.Diagnostics.Append(cdiags...)
 				return
 			}
-
-			state.AllowList = plan.AllowList
-
+			r.updateAllowListState(plan, state)
 			// Save updated data into Terraform state
 			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 			if resp.Diagnostics.HasError() {
 				return
 			}
-			r.waitForUpdate(ctx, state, err, resp)
+			r.waitForUpdate(ctx, state, resp)
 			return
 		}
 	}
@@ -877,16 +990,15 @@ func (r *ServiceResource) updateServicePowerState(ctx context.Context, plan *Ser
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		r.waitForUpdate(ctx, state, err, resp)
+		r.waitForUpdate(ctx, state, resp)
 	}
-	return
 }
 
 var serviceUpdateWaitStates = []string{"ready", "failed", "stopped"}
 
-func (r *ServiceResource) waitForUpdate(ctx context.Context, state *ServiceResourceModel, err error, resp *resource.UpdateResponse) {
+func (r *ServiceResource) waitForUpdate(ctx context.Context, state *ServiceResourceModel, resp *resource.UpdateResponse) {
 	if state.WaitForUpdate.ValueBool() {
-		err = sdkresource.RetryContext(ctx, defaultUpdateTimeout, func() *sdkresource.RetryError {
+		err := sdkresource.RetryContext(ctx, defaultUpdateTimeout, func() *sdkresource.RetryError {
 			service, err := r.client.GetServiceByID(ctx, state.ID.ValueString())
 			if err != nil {
 				return sdkresource.NonRetryableError(fmt.Errorf("error retrieving service details: %v", err))
@@ -936,8 +1048,8 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 		}
 		return
 	}
-	if state.WaitForDeletion.ValueBool() {
 
+	if state.WaitForDeletion.ValueBool() {
 		deleteTimeout, diagsErr := state.Timeouts.Delete(ctx, defaultDeleteTimeout)
 		if diagsErr != nil {
 			diagsErr.AddError("Error deleting service", fmt.Sprintf("Unable to delete service, got error: %s", err))
@@ -945,7 +1057,6 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 		}
 
 		err = sdkresource.RetryContext(ctx, deleteTimeout, func() *sdkresource.RetryError {
-
 			service, err := r.client.GetServiceByID(ctx, state.ID.ValueString())
 			if err != nil {
 				if errors.Is(err, skysql.ErrorServiceNotFound) {
@@ -972,115 +1083,179 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	if req.Plan.Raw.IsNull() {
 		return
 	}
-}
 
-func (r *ServiceResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	// Reminder!!!
+	// The plan new state is represented by
+	// ModifyPlanResponse.Plan. It must meet the following
+	// constraints:
+	// 1. Any non-Computed attribute set in plan must preserve the exact
+	// plan value or return the corresponding attribute value from the
+	// prior state (ModifyPlanRequest.State).
+	// 2. Any attribute with a known value must not have its value changed
+	// in subsequent calls to ModifyPlan or Create/Read/Update.
+	// 3. Any attribute with an unknown value may either remain unknown
+	// or take on any value of the expected type.
+	//
+	// Any errors will prevent further resource-level plan modifications.
 
-	var config *ServiceResourceModel
+	var plan *ServiceResourceModel
 
 	// Read Terraform plan data into the model
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var state *ServiceResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var config *ServiceResourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	if !Contains[string]([]string{"gcp", "aws"}, config.Provider.ValueString()) {
+	if !Contains[string]([]string{"gcp", "aws"}, plan.Provider.ValueString()) {
 		resp.Diagnostics.AddAttributeError(path.Root("provider"),
 			"Invalid provider value",
-			fmt.Sprintf("The %q is an invalid value. Allowed values: aws or gcp", config.Provider.ValueString()))
+			fmt.Sprintf("The %q is an invalid value. Allowed values: aws or gcp", plan.Provider.ValueString()))
 	}
 
-	if config.Provider.ValueString() == "aws" {
-		if !config.VolumeIOPS.IsNull() && config.VolumeType.IsNull() {
+	if plan.Provider.ValueString() == "aws" {
+		if !plan.VolumeIOPS.IsNull() && plan.VolumeType.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
 				"volume_type is require",
 				"volume_type is required when volume_iops is set. "+
 					"Use: io1 for volume_type if volume_iops is set")
 			return
 		}
-		if !config.VolumeIOPS.IsNull() &&
-			config.VolumeType.ValueString() != "io1" {
+		if !plan.VolumeIOPS.IsNull() &&
+			plan.VolumeType.ValueString() != "io1" {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
 				"volume_type must be io1 when you want to set IOPS",
 				"Use: io1 for volume_type if volume_iops is set")
 			return
 		}
 	} else {
-		if !config.VolumeType.IsNull() {
+		if !plan.VolumeType.IsNull() {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("volume_type"),
-				fmt.Sprintf("volume_type is not supported for %q provider", config.Provider.ValueString()),
-				fmt.Sprintf("Volume type is not supported for %q provider", config.Provider.ValueString()))
+				fmt.Sprintf("volume_type is not supported for %q provider", plan.Provider.ValueString()),
+				fmt.Sprintf("Volume type is not supported for %q provider", plan.Provider.ValueString()))
 			return
 		}
-		if !config.VolumeIOPS.IsNull() {
+		if !plan.VolumeIOPS.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_iops"),
-				fmt.Sprintf("volume_iops is not supported for %q provider", config.Provider.ValueString()),
-				fmt.Sprintf("Volume IOPS are not supported for %q provider", config.Provider.ValueString()))
+				fmt.Sprintf("volume_iops is not supported for %q provider", plan.Provider.ValueString()),
+				fmt.Sprintf("Volume IOPS are not supported for %q provider", plan.Provider.ValueString()))
 			return
 		}
 	}
 
-	if !Contains[string]([]string{"lakehouse", "sa"}, config.Topology.ValueString()) {
-		if config.SSLEnabled.IsNull() {
+	if !Contains[string]([]string{"lakehouse", "sa"}, plan.Topology.ValueString()) {
+		if plan.SSLEnabled.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("ssl_enabled"),
 				"Missing required argument",
 				fmt.Sprintf("The argument %q is required, but no definition was found.", "ssl_enabled"))
 			return
 		}
-		if config.Storage.IsNull() {
+		if plan.Storage.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("storage"),
 				"Missing required argument",
 				fmt.Sprintf("The argument %q is required, but no definition was found.", "storage"))
 			return
 		}
-		if config.Size.IsNull() {
+		if plan.Size.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("size"),
 				"Missing required argument",
 				fmt.Sprintf("The argument %q is required, but no definition was found.", "size"))
 			return
 		}
-		if config.Nodes.IsNull() {
+		if plan.Nodes.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("size"),
 				"Missing required argument",
 				fmt.Sprintf("The argument %q is required, but no definition was found.", "size"))
-			return
-		}
-		if config.Version.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("version"),
-				"Missing required argument",
-				fmt.Sprintf("The argument %q is required, but no definition was found.", "version"))
 			return
 		}
 	} else {
-		if !config.Architecture.IsUnknown() && !config.Architecture.IsNull() {
+		if state == nil && !plan.Architecture.IsUnknown() {
+			// We apply validation only if the resource is not created yet
 			resp.Diagnostics.AddAttributeError(path.Root("architecture"),
-				"Attempt to modify read-only attribute",
-				fmt.Sprintf("The argument %q is read only for the %q topology", "architecture", config.Topology.ValueString()))
+				"Attempt to set read-only attribute",
+				fmt.Sprintf("The argument %q is read only for the %q topology", "architecture", plan.Topology.ValueString()))
 		}
-		if !config.Nodes.IsUnknown() && !config.Nodes.IsNull() {
+
+		if state == nil && !plan.Nodes.IsUnknown() {
+			resp.Diagnostics.AddAttributeError(path.Root("nodes"),
+				"Attempt to set read-only attribute",
+				fmt.Sprintf("The argument %q is read only for the %q topology", "nodes", plan.Topology.ValueString()))
+		}
+
+		if state == nil && !plan.Size.IsUnknown() {
+			resp.Diagnostics.AddAttributeError(path.Root("size"),
+				"Attempt to set read-only attribute",
+				fmt.Sprintf("The argument %q is read only for the %q topology", "size", plan.Topology.ValueString()))
+		}
+
+		if state == nil && !plan.SSLEnabled.IsUnknown() {
+			resp.Diagnostics.AddAttributeError(path.Root("ssl_enabled"),
+				"Attempt to set read-only attribute",
+				fmt.Sprintf("The argument %q is read only for the %q topology", "ssl_enabled", plan.Topology.ValueString()))
+		}
+
+		if state == nil && !plan.Version.IsUnknown() {
+			resp.Diagnostics.AddAttributeError(path.Root("version"),
+				"Attempt to set read-only attribute",
+				fmt.Sprintf("The argument %q is read only for the %q topology", "version", plan.Topology.ValueString()))
+		}
+
+		if state != nil && plan.Nodes.ValueInt64() != state.Nodes.ValueInt64() {
 			resp.Diagnostics.AddAttributeError(path.Root("nodes"),
 				"Attempt to modify read-only attribute",
-				fmt.Sprintf("The argument %q is read only for the %q topology", "nodes", config.Topology.ValueString()))
+				fmt.Sprintf("The argument %q is read only for the %q topology", "version", plan.Topology.ValueString()))
 		}
 
-		if !config.Size.IsUnknown() && !config.Size.IsNull() {
+		if state != nil && plan.Size.ValueString() != state.Size.ValueString() {
 			resp.Diagnostics.AddAttributeError(path.Root("size"),
 				"Attempt to modify read-only attribute",
-				fmt.Sprintf("The argument %q is read only for the %q topology", "size", config.Topology.ValueString()))
+				fmt.Sprintf("The argument %q is read only for the %q topology", "version", plan.Topology.ValueString()))
 		}
+	}
 
-		if !config.SSLEnabled.IsUnknown() && !config.SSLEnabled.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("ssl_enabled"),
-				"Attempt to modify read-only attribute",
-				fmt.Sprintf("The argument %q is read only for the %q topology", "ssl_enabled", config.Topology.ValueString()))
-		}
+	if state != nil && plan.Architecture.ValueString() != state.Architecture.ValueString() {
+		resp.Diagnostics.AddError("Cannot change service architecture",
+			"To prevent accidental deletion of data, changing architecture isn't allowed. "+
+				"Please explicitly destroy this service before changing its architecture.")
+	}
 
-		if !config.Version.IsUnknown() && !config.Version.IsNull() {
-			resp.Diagnostics.AddAttributeError(path.Root("version"),
-				"Attempt to modify read-only attribute",
-				fmt.Sprintf("The argument %q is read only for the %q topology", "version", config.Topology.ValueString()))
-		}
+	if state != nil && plan.SSLEnabled.ValueBool() != state.SSLEnabled.ValueBool() {
+		resp.Diagnostics.AddError("Cannot change service ssl_enabled",
+			"To prevent accidental deletion of data, changing ssl_enabled isn't allowed. "+
+				"Please explicitly destroy this service before changing its ssl_enabled.")
+	}
+
+	if state != nil && plan.Version.ValueString() != state.Version.ValueString() {
+		resp.Diagnostics.AddError("Cannot change service version",
+			"To prevent accidental deletion of data, changing version isn't allowed. "+
+				"Please explicitly destroy this service before changing its version.")
+	}
+
+	if state == nil &&
+		Contains[string](privateConnectMechanisms, plan.Mechanism.ValueString()) &&
+		!plan.AllowList.IsNull() {
+		resp.Diagnostics.AddAttributeError(path.Root("allow_list"),
+			fmt.Sprintf("You can not set allow_list when mechanism has %q value", plan.Mechanism.ValueString()),
+			fmt.Sprintf("When you set mechanism=%q, don't use allow_list, use endpoint_allowed_accounts instead", plan.Mechanism.ValueString()))
+	}
+
+	if plan.Mechanism.ValueString() == "nlb" {
+		// Force mechanism update
+		resp.Plan.SetAttribute(ctx, path.Root("endpoint_allowed_accounts"), types.ListNull(types.StringType))
 	}
 }

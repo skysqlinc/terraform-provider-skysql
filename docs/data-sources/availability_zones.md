@@ -1,5 +1,5 @@
 ---
-page_title: "skysql_availability_zones Data Source - terraform-provider-skysql-beta"
+page_title: "skysql_availability_zones Data Source - terraform-provider-skysql"
 subcategory: ""
 description: |-
   Retrieve the list of availability_zones.

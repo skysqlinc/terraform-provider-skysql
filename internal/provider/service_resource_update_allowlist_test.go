@@ -96,7 +96,10 @@ func TestServiceResourceAllowlistUpdate(t *testing.T) {
 			ReplicationEnabled: false,
 			PrimaryHost:        "",
 		}
-		json.NewEncoder(w).Encode(service)
+		if service.Provider == "gcp" {
+			service.StorageVolume.VolumeType = "pd-ssd"
+		}
+		r.NoError(json.NewEncoder(w).Encode(service))
 		w.WriteHeader(http.StatusCreated)
 	})
 	// Get service status

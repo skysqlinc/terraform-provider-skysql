@@ -94,7 +94,10 @@ func TestServiceResourceDeletionProtection(t *testing.T) {
 			MaxscaleSize:       &(payload.Size),
 			MaxscaleNodes:      0,
 		}
-		json.NewEncoder(w).Encode(service)
+		if service.Provider == "gcp" {
+			service.StorageVolume.VolumeType = "pd-ssd"
+		}
+		r.NoError(json.NewEncoder(w).Encode(service))
 		w.WriteHeader(http.StatusCreated)
 	})
 	for i := 0; i < 4; i++ {

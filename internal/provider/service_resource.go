@@ -238,6 +238,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 			"volume_type": schema.StringAttribute{
 				Optional:    true,
+				Computed:    true,
 				Description: "The volume type. Valid values are: gp2 and io1. This is only applicable for AWS",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -1143,13 +1144,21 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 			return
 		}
 	} else {
-		if !plan.VolumeType.IsNull() {
+		if !(plan.VolumeType.ValueString() == "" || plan.VolumeType.IsNull() || plan.VolumeType.ValueString() == "pd-ssd") {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("volume_type"),
-				fmt.Sprintf("volume_type is not supported for %q provider", plan.Provider.ValueString()),
+				fmt.Sprintf("volume_type = %q is not supported for %q provider",
+					plan.VolumeType.ValueString(),
+					plan.Provider.ValueString(),
+				),
 				fmt.Sprintf("Volume type is not supported for %q provider", plan.Provider.ValueString()))
 			return
 		}
+
+		if plan.VolumeType.ValueString() == "" || plan.VolumeType.IsNull() {
+			resp.Plan.SetAttribute(ctx, path.Root("volume_type"), types.StringValue("pd-ssd"))
+		}
+
 		if !plan.VolumeIOPS.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_iops"),
 				fmt.Sprintf("volume_iops is not supported for %q provider", plan.Provider.ValueString()),

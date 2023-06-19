@@ -29,7 +29,8 @@ func mockSkySQLAPI(t *testing.T) (string, func(http.HandlerFunc), func()) {
 		addExpectedCall = func(h http.HandlerFunc) {
 			expectedCalls = append(expectedCalls, h)
 		}
-		r = require.New(t)
+		processedRequests = make([]string, 0)
+		r                 = require.New(t)
 	)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -48,7 +49,7 @@ func mockSkySQLAPI(t *testing.T) (string, func(http.HandlerFunc), func()) {
 		}
 
 		expectedCalls[receivedCalls](w, req)
-
+		processedRequests = append(processedRequests, string(reqDump))
 		receivedCalls++
 	}))
 
@@ -57,7 +58,8 @@ func mockSkySQLAPI(t *testing.T) (string, func(http.HandlerFunc), func()) {
 		r.Equal(
 			len(expectedCalls),
 			receivedCalls,
-			"expected one more request",
+			"expected one more request. processed: \n %v",
+			processedRequests,
 		)
 	}
 }
@@ -160,6 +162,9 @@ resource "skysql_service" default {
 						ReplicationEnabled: false,
 						PrimaryHost:        "",
 					}
+					if service.Provider == "gcp" {
+						service.StorageVolume.VolumeType = "pd-ssd"
+					}
 					json.NewEncoder(w).Encode(service)
 					w.WriteHeader(http.StatusCreated)
 				})
@@ -196,23 +201,23 @@ resource "skysql_service" default {
 		{
 			name: "create service when skysql api returns error",
 			testResource: `
-		resource "skysql_service" default {
-		 service_type   = "transactional"
-		 topology       = "es-single"
-		 cloud_provider = "gcp"
-		 region         = "us-central1"
-		 name           = "test-gcp"
-		 architecture   = "amd64"
-		 nodes          = 1
-		 size           = "sky-2x8"
-		 storage        = 100
-		 ssl_enabled    = true
-		 version        = "10.6.11-6-1"
-		 wait_for_creation = true
-		 wait_for_deletion = true
-		 deletion_protection = false
-		}
-			            `,
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "gcp"
+				 region         = "us-central1"
+				 name           = "test-gcp"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				}
+					            `,
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
@@ -247,23 +252,23 @@ resource "skysql_service" default {
 		{
 			name: "create service when skysql api returns unexpected error",
 			testResource: `
-		resource "skysql_service" default {
-		 service_type   = "transactional"
-		 topology       = "es-single"
-		 cloud_provider = "gcp"
-		 region         = "us-central1"
-		 name           = "test-gcp"
-		 architecture   = "amd64"
-		 nodes          = 1
-		 size           = "sky-2x8"
-		 storage        = 100
-		 ssl_enabled    = true
-		 version        = "10.6.11-6-1"
-		 wait_for_creation = true
-		 wait_for_deletion = true
-		 deletion_protection = false
-		}
-			            `,
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "gcp"
+				 region         = "us-central1"
+				 name           = "test-gcp"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				}
+					            `,
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
@@ -289,29 +294,29 @@ resource "skysql_service" default {
 		{
 			name: "create service with allowlist",
 			testResource: `
-resource "skysql_service" default {
-  service_type   = "transactional"
-  topology       = "es-single"
-  cloud_provider = "gcp"
-  region         = "us-central1"
-  name           = "test-gcp"
-  architecture   = "amd64"
-  nodes          = 1
-  size           = "sky-2x8"
-  storage        = 100
-  ssl_enabled    = true
-  version        = "10.6.11-6-1"
-  wait_for_creation = true
-  wait_for_deletion = true
-  deletion_protection = false
-  allow_list = [
-    {
-      "ip": "192.158.1.38/32",
-      "comment": "homeoffice"
-    }
-  ]
-}
-	            `,
+		resource "skysql_service" default {
+		 service_type   = "transactional"
+		 topology       = "es-single"
+		 cloud_provider = "gcp"
+		 region         = "us-central1"
+		 name           = "test-gcp"
+		 architecture   = "amd64"
+		 nodes          = 1
+		 size           = "sky-2x8"
+		 storage        = 100
+		 ssl_enabled    = true
+		 version        = "10.6.11-6-1"
+		 wait_for_creation = true
+		 wait_for_deletion = true
+		 deletion_protection = false
+		 allow_list = [
+		   {
+		     "ip": "192.158.1.38/32",
+		     "comment": "homeoffice"
+		   }
+		 ]
+		}
+			            `,
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				var service *provisioning.Service
@@ -419,28 +424,28 @@ resource "skysql_service" default {
 		{
 			name: "fail when service has the privateconnect mechanism and allowlist is not empty",
 			testResource: `
-resource "skysql_service" "default" {
-  service_type      = "transactional"
-  topology          = "es-single"
-  cloud_provider    = "gcp"
-  region            = "europe-west4"
-  name              = "test-service"
-  nodes             = 1
-  size              = "sky-2x8"
-  storage           = 100
-  endpoint_mechanism = "privateconnect"
-  ssl_enabled       = true
-  architecture      = "amd64"
-  wait_for_creation = true
-  wait_for_deletion = true
-  wait_for_update   = true
-  deletion_protection = false
-  allow_list = [
-    {
-      ip : "10.100.0.0/16"
-    }
-  ]
-}`,
+		resource "skysql_service" "default" {
+		 service_type      = "transactional"
+		 topology          = "es-single"
+		 cloud_provider    = "gcp"
+		 region            = "europe-west4"
+		 name              = "test-service"
+		 nodes             = 1
+		 size              = "sky-2x8"
+		 storage           = 100
+		 endpoint_mechanism = "privateconnect"
+		 ssl_enabled       = true
+		 architecture      = "amd64"
+		 wait_for_creation = true
+		 wait_for_deletion = true
+		 wait_for_update   = true
+		 deletion_protection = false
+		 allow_list = [
+		   {
+		     ip : "10.100.0.0/16"
+		   }
+		 ]
+		}`,
 			before: func(r *require.Assertions) {},
 			checks: []resource.TestCheckFunc{
 				resource.TestCheckResourceAttr("skysql_service.default", "id", ""),
@@ -450,22 +455,22 @@ resource "skysql_service" "default" {
 		{
 			name: "create service when version is not specified",
 			testResource: `
-resource "skysql_service" default {
-  service_type   = "transactional"
-  topology       = "es-single"
-  cloud_provider = "gcp"
-  region         = "us-central1"
-  name           = "test-gcp"
-  architecture   = "amd64"
-  nodes          = 1
-  size           = "sky-2x8"
-  storage        = 100
-  ssl_enabled    = true
-  wait_for_creation = true
-  wait_for_deletion = true
-  deletion_protection = false
-}
-	            `,
+		resource "skysql_service" default {
+		 service_type   = "transactional"
+		 topology       = "es-single"
+		 cloud_provider = "gcp"
+		 region         = "us-central1"
+		 name           = "test-gcp"
+		 architecture   = "amd64"
+		 nodes          = 1
+		 size           = "sky-2x8"
+		 storage        = 100
+		 ssl_enabled    = true
+		 wait_for_creation = true
+		 wait_for_deletion = true
+		 deletion_protection = false
+		}
+			            `,
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				var service *provisioning.Service
@@ -566,23 +571,23 @@ resource "skysql_service" default {
 		{
 			name: "create service when unexpected provider value",
 			testResource: fmt.Sprintf(`
-		resource "skysql_service" default {
-		 service_type   = "transactional"
-		 topology       = "es-single"
-		 cloud_provider = "boom!"
-		 region         = "us-central1"
-		 name           = "%s"
-		 architecture   = "amd64"
-		 nodes          = 1
-		 size           = "sky-2x8"
-		 storage        = 100
-		 ssl_enabled    = true
-		 version        = "10.6.11-6-1"
-		 wait_for_creation = true
-		 wait_for_deletion = true
-		 deletion_protection = false
-		}
-			            `, strings.ToLower(faker.FirstName()+faker.StringWithSize(3))),
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "boom!"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				}
+					            `, strings.ToLower(faker.FirstName()+faker.StringWithSize(3))),
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
@@ -597,26 +602,26 @@ resource "skysql_service" default {
 			expectError: regexp.MustCompile(`Invalid provider value`),
 		},
 		{
-			name: "create service when unexpected volume_type is not set for valume_iops",
+			name: "create service when unexpected volume_type is not set for volume_iops",
 			testResource: fmt.Sprintf(`
-		resource "skysql_service" default {
-		 service_type   = "transactional"
-		 topology       = "es-single"
-		 cloud_provider = "aws"
-		 region         = "us-central1"
-		 name           = "%s"
-		 architecture   = "amd64"
-         volume_iops     = 100
-		 nodes          = 1
-		 size           = "sky-2x8"
-		 storage        = 100
-		 ssl_enabled    = true
-		 version        = "10.6.11-6-1"
-		 wait_for_creation = true
-		 wait_for_deletion = true
-		 deletion_protection = false
-		}
-			            `, strings.ToLower(faker.FirstName()+faker.StringWithSize(3))),
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "aws"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+		         volume_iops     = 100
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				}
+					            `, strings.ToLower(faker.FirstName()+faker.StringWithSize(3))),
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
@@ -628,7 +633,7 @@ resource "skysql_service" default {
 					w.WriteHeader(http.StatusOK)
 				})
 			},
-			expectError: regexp.MustCompile(`volume_type is require`),
+			expectError: regexp.MustCompile(`volume_type must be io1 when you want to set IOPS`),
 		},
 	}
 

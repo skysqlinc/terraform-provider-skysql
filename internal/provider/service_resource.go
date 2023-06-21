@@ -42,6 +42,7 @@ var _ resource.Resource = &ServiceResource{}
 var _ resource.ResourceWithImportState = &ServiceResource{}
 var _ resource.ResourceWithConfigure = &ServiceResource{}
 var _ resource.ResourceWithModifyPlan = &ServiceResource{}
+var _ resource.ResourceWithUpgradeState = &ServiceResource{}
 
 var allowListElementType = types.ObjectType{
 	AttrTypes: map[string]attr.Type{
@@ -107,291 +108,294 @@ func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataReq
 	resp.TypeName = req.ProviderTypeName + "_service"
 }
 
-func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		Description: "Creates and manages a service in SkySQL",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Required: false,
-				Optional: false,
-				Computed: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-				Description: "The ID of the service",
+var serviceResourceSchemaV0 = schema.Schema{
+	Description: "Creates and manages a service in SkySQL",
+	Version:     1,
+	Attributes: map[string]schema.Attribute{
+		"id": schema.StringAttribute{
+			Required: false,
+			Optional: false,
+			Computed: true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
 			},
-			"name": schema.StringAttribute{
-				Required:    true,
-				Description: "The name of the service",
-				Validators: []validator.String{
-					stringvalidator.LengthBetween(1, 24),
-					stringvalidator.RegexMatches(
-						rxServiceName,
-						"must start from a lowercase letter and contain only lowercase letters, numbers and hyphens",
-					),
-				},
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+			Description: "The ID of the service",
+		},
+		"name": schema.StringAttribute{
+			Required:    true,
+			Description: "The name of the service",
+			Validators: []validator.String{
+				stringvalidator.LengthBetween(1, 24),
+				stringvalidator.RegexMatches(
+					rxServiceName,
+					"must start from a lowercase letter and contain only lowercase letters, numbers and hyphens",
+				),
 			},
-			"project_id": schema.StringAttribute{
-				Required:    false,
-				Optional:    true,
-				Description: "The ID of the project to create the service in",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
 			},
-			"service_type": schema.StringAttribute{
-				Required:    true,
-				Description: "The type of service to create. Valid values are: analytical or transactional",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"project_id": schema.StringAttribute{
+			Required:    false,
+			Optional:    true,
+			Description: "The ID of the project to create the service in",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
 			},
-			"cloud_provider": schema.StringAttribute{
-				Required:    true,
-				Description: "The cloud provider to create the service in. Valid values are: aws or gcp",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"service_type": schema.StringAttribute{
+			Required:    true,
+			Description: "The type of service to create. Valid values are: analytical or transactional",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
 			},
-			"region": schema.StringAttribute{
-				Required:    true,
-				Description: "The region to create the service in. Value should be valid for a specific cloud provider",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"cloud_provider": schema.StringAttribute{
+			Required:    true,
+			Description: "The cloud provider to create the service in. Valid values are: aws or gcp",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
 			},
-			"version": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The software version",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"region": schema.StringAttribute{
+			Required:    true,
+			Description: "The region to create the service in. Value should be valid for a specific cloud provider",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
 			},
-			"nodes": schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The number of nodes",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
+		},
+		"version": schema.StringAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The software version",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
 			},
-			"architecture": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The architecture of the service. Valid values are: amd64 or arm64",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"nodes": schema.Int64Attribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The number of nodes",
+			PlanModifiers: []planmodifier.Int64{
+				int64planmodifier.UseStateForUnknown(),
 			},
-			"size": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The size of the service. Valid values are: sky-2x4, sky-2x8 etc",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"architecture": schema.StringAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The architecture of the service. Valid values are: amd64 or arm64",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
 			},
-			"topology": schema.StringAttribute{
-				Required:    true,
-				Description: "The topology of the service. Valid values are: es-single, es-replica, xpand, csdw and sa",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"size": schema.StringAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The size of the service. Valid values are: sky-2x4, sky-2x8 etc",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
 			},
-			"storage": schema.Int64Attribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The storage size in GB. Valid values are: 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
+		},
+		"topology": schema.StringAttribute{
+			Required:    true,
+			Description: "The topology of the service. Valid values are: es-single, es-replica, xpand, csdw and sa",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
 			},
-			"volume_iops": schema.Int64Attribute{
-				Optional:    true,
-				Description: "The volume IOPS. This is only applicable for AWS",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
+		},
+		"storage": schema.Int64Attribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The storage size in GB. Valid values are: 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000",
+			PlanModifiers: []planmodifier.Int64{
+				int64planmodifier.UseStateForUnknown(),
 			},
-			"ssl_enabled": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Whether to enable SSL. Valid values are: true or false",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"volume_iops": schema.Int64Attribute{
+			Optional:    true,
+			Description: "The volume IOPS. This is only applicable for AWS",
+			PlanModifiers: []planmodifier.Int64{
+				int64planmodifier.UseStateForUnknown(),
 			},
-			"nosql_enabled": schema.BoolAttribute{
-				Optional:    true,
-				Description: "Whether to enable NoSQL. Valid values are: true or false",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"ssl_enabled": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Whether to enable SSL. Valid values are: true or false",
+			PlanModifiers: []planmodifier.Bool{
+				boolplanmodifier.RequiresReplace(),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"volume_type": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The volume type. Valid values are: gp2 and io1. This is only applicable for AWS",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
-				},
+		},
+		"nosql_enabled": schema.BoolAttribute{
+			Optional:    true,
+			Description: "Whether to enable NoSQL. Valid values are: true or false",
+			PlanModifiers: []planmodifier.Bool{
+				boolplanmodifier.RequiresReplace(),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"wait_for_creation": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Whether to wait for the service to be created. Valid values are: true or false",
-				PlanModifiers: []planmodifier.Bool{
-					boolDefault(true),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"volume_type": schema.StringAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The volume type. Valid values are: gp2 and io1. This is only applicable for AWS",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
 			},
-			"endpoint_mechanism": schema.StringAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "The endpoint mechanism to use. Valid values are: privateconnect or nlb",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"wait_for_creation": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Whether to wait for the service to be created. Valid values are: true or false",
+			PlanModifiers: []planmodifier.Bool{
+				boolDefault(true),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"endpoint_allowed_accounts": schema.ListAttribute{
-				Optional:    true,
-				Description: "The list of cloud accounts (aws account ids or gcp projects) that are allowed to access the service",
-				ElementType: types.StringType,
+		},
+		"endpoint_mechanism": schema.StringAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "The endpoint mechanism to use. Valid values are: privateconnect or nlb",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
 			},
-			"wait_for_deletion": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Whether to wait for the service to be deleted. Valid values are: true or false",
-				PlanModifiers: []planmodifier.Bool{
-					boolDefault(true),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"endpoint_allowed_accounts": schema.ListAttribute{
+			Optional:    true,
+			Description: "The list of cloud accounts (aws account ids or gcp projects) that are allowed to access the service",
+			ElementType: types.StringType,
+		},
+		"wait_for_deletion": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Whether to wait for the service to be deleted. Valid values are: true or false",
+			PlanModifiers: []planmodifier.Bool{
+				boolDefault(true),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"replication_enabled": schema.BoolAttribute{
-				Optional:    true,
-				Description: "Whether to enable global replication. Valid values are: true or false. Works for xpand-direct topology only",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"replication_enabled": schema.BoolAttribute{
+			Optional:    true,
+			Description: "Whether to enable global replication. Valid values are: true or false. Works for xpand-direct topology only",
+			PlanModifiers: []planmodifier.Bool{
+				boolplanmodifier.RequiresReplace(),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"primary_host": schema.StringAttribute{
-				Optional:    true,
-				Description: "The primary host of the service",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"primary_host": schema.StringAttribute{
+			Optional:    true,
+			Description: "The primary host of the service",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
+				stringplanmodifier.UseStateForUnknown(),
 			},
-			"is_active": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Whether the service is active",
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"is_active": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Whether the service is active",
+			PlanModifiers: []planmodifier.Bool{
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"wait_for_update": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Whether to wait for the service to be updated. Valid values are: true or false",
-				PlanModifiers: []planmodifier.Bool{
-					boolDefault(true),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"wait_for_update": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Whether to wait for the service to be updated. Valid values are: true or false",
+			PlanModifiers: []planmodifier.Bool{
+				boolDefault(true),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"deletion_protection": schema.BoolAttribute{
-				Optional:    true,
-				Computed:    true,
-				Description: "Whether to enable deletion protection. Valid values are: true or false. Default is true",
-				PlanModifiers: []planmodifier.Bool{
-					boolDefault(true),
-					boolplanmodifier.UseStateForUnknown(),
-				},
+		},
+		"deletion_protection": schema.BoolAttribute{
+			Optional:    true,
+			Computed:    true,
+			Description: "Whether to enable deletion protection. Valid values are: true or false. Default is true",
+			PlanModifiers: []planmodifier.Bool{
+				boolDefault(true),
+				boolplanmodifier.UseStateForUnknown(),
 			},
-			"allow_list": schema.ListNestedAttribute{
-				Required: false,
-				//Computed:    true,
-				Optional:    true,
-				Description: "The list of IP addresses with comments to allow access to the service",
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"ip": schema.StringAttribute{
-							Required:    true,
-							Description: "The IP address to allow access to the service. The IP must be in a valid CIDR format",
-							Validators: []validator.String{
-								allowListIPValidator{},
-							},
-						},
-						"comment": schema.StringAttribute{
-							Optional:    true,
-							Description: "A comment to describe the IP address",
+		},
+		"allow_list": schema.ListNestedAttribute{
+			Required: false,
+			//Computed:    true,
+			Optional:    true,
+			Description: "The list of IP addresses with comments to allow access to the service",
+			NestedObject: schema.NestedAttributeObject{
+				Attributes: map[string]schema.Attribute{
+					"ip": schema.StringAttribute{
+						Required:    true,
+						Description: "The IP address to allow access to the service. The IP must be in a valid CIDR format",
+						Validators: []validator.String{
+							allowListIPValidator{},
 						},
 					},
-				},
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"maxscale_nodes": schema.Int64Attribute{
-				Optional:    true,
-				Description: "The number of MaxScale nodes",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.RequiresReplace(),
-					int64planmodifier.UseStateForUnknown(),
+					"comment": schema.StringAttribute{
+						Optional:    true,
+						Description: "A comment to describe the IP address",
+					},
 				},
 			},
-			"maxscale_size": schema.StringAttribute{
-				Optional:    true,
-				Description: "The size of the MaxScale nodes. Valid values are: sky-2x4, sky-2x8 etc",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"fqdn": schema.StringAttribute{
-				Required: false,
-				Optional: false,
-				Computed: true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-				Description: "The fully qualified domain name of the service. The FQDN is only available when the service is in the ready state",
-			},
-			"endpoint_service": schema.StringAttribute{
-				Required:    false,
-				Optional:    false,
-				Computed:    true,
-				Description: "The endpoint service name of the service, when mechanism is a privateconnect.",
-			},
-			"availability_zone": schema.StringAttribute{
-				Required:    false,
-				Optional:    true,
-				Computed:    true,
-				Description: "The availability zone of the service",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-					stringplanmodifier.RequiresReplace(),
-				},
+			PlanModifiers: []planmodifier.List{
+				listplanmodifier.UseStateForUnknown(),
 			},
 		},
-		Blocks: map[string]schema.Block{
-			"timeouts": timeouts.Block(ctx, timeouts.Opts{
-				Create: true,
-				Delete: true,
-				Update: true,
-			}),
+		"maxscale_nodes": schema.Int64Attribute{
+			Optional:    true,
+			Description: "The number of MaxScale nodes",
+			PlanModifiers: []planmodifier.Int64{
+				int64planmodifier.RequiresReplace(),
+				int64planmodifier.UseStateForUnknown(),
+			},
 		},
-	}
+		"maxscale_size": schema.StringAttribute{
+			Optional:    true,
+			Description: "The size of the MaxScale nodes. Valid values are: sky-2x4, sky-2x8 etc",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.RequiresReplace(),
+				stringplanmodifier.UseStateForUnknown(),
+			},
+		},
+		"fqdn": schema.StringAttribute{
+			Required: false,
+			Optional: false,
+			Computed: true,
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+			},
+			Description: "The fully qualified domain name of the service. The FQDN is only available when the service is in the ready state",
+		},
+		"endpoint_service": schema.StringAttribute{
+			Required:    false,
+			Optional:    false,
+			Computed:    true,
+			Description: "The endpoint service name of the service, when mechanism is a privateconnect.",
+		},
+		"availability_zone": schema.StringAttribute{
+			Required:    false,
+			Optional:    true,
+			Computed:    true,
+			Description: "The availability zone of the service",
+			PlanModifiers: []planmodifier.String{
+				stringplanmodifier.UseStateForUnknown(),
+				stringplanmodifier.RequiresReplace(),
+			},
+		},
+	},
+	Blocks: map[string]schema.Block{
+		"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
+			Create: true,
+			Delete: true,
+			Update: true,
+		}),
+	},
+}
+
+func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = serviceResourceSchemaV0
 }
 
 func (r *ServiceResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -1266,5 +1270,26 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	if plan.Mechanism.ValueString() == "nlb" {
 		// Force mechanism update
 		resp.Plan.SetAttribute(ctx, path.Root("endpoint_allowed_accounts"), types.ListNull(types.StringType))
+	}
+}
+
+func (r *ServiceResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			PriorSchema: &serviceResourceSchemaV0,
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				var state ServiceResourceModel
+				diags := req.State.Get(ctx, &state)
+				resp.Diagnostics.Append(diags...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				if state.Provider.ValueString() == "gcp" {
+					state.VolumeType = types.StringValue("pd-ssd")
+					diags = resp.State.Set(ctx, state)
+					resp.Diagnostics.Append(diags...)
+				}
+			},
+		},
 	}
 }

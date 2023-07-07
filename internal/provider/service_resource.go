@@ -328,8 +328,8 @@ var serviceResourceSchemaV0 = schema.Schema{
 			},
 		},
 		"allow_list": schema.ListNestedAttribute{
-			Required: false,
-			//Computed:    true,
+			Required:    false,
+			Computed:    true,
 			Optional:    true,
 			Description: "The list of IP addresses with comments to allow access to the service",
 			NestedObject: schema.NestedAttributeObject{

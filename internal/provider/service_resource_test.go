@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
-	"github.com/pioz/faker"
 	"github.com/stretchr/testify/require"
 	"log"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"regexp"
-	"strings"
 	"testing"
 	"time"
 )
@@ -165,16 +163,16 @@ resource "skysql_service" default {
 					if service.Provider == "gcp" {
 						service.StorageVolume.VolumeType = "pd-ssd"
 					}
-					json.NewEncoder(w).Encode(service)
+					r.NoError(json.NewEncoder(w).Encode(service))
 					w.WriteHeader(http.StatusCreated)
 				})
-				for i := 0; i < 3; i++ {
+				for i := 0; i <= 2; i++ {
 					expectRequest(func(w http.ResponseWriter, req *http.Request) {
 						r.Equal(http.MethodGet, req.Method)
 						r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
 						w.Header().Set("Content-Type", "application/json")
 						service.Status = "ready"
-						json.NewEncoder(w).Encode(service)
+						r.NoError(json.NewEncoder(w).Encode(service))
 						w.WriteHeader(http.StatusOK)
 					})
 				}
@@ -587,7 +585,7 @@ resource "skysql_service" default {
 				 wait_for_deletion = true
 				 deletion_protection = false
 				}
-					            `, strings.ToLower(faker.FirstName()+faker.StringWithSize(3))),
+					            `, GenerateServiceName(t)),
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {
@@ -621,7 +619,7 @@ resource "skysql_service" default {
 				 wait_for_deletion = true
 				 deletion_protection = false
 				}
-					            `, strings.ToLower(faker.FirstName()+faker.StringWithSize(3))),
+					            `, GenerateServiceName(t)),
 			before: func(r *require.Assertions) {
 				configureOnce.Reset()
 				expectRequest(func(w http.ResponseWriter, req *http.Request) {

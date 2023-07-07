@@ -243,7 +243,15 @@ var serviceResourceSchemaV0 = schema.Schema{
 			Description: "The volume type. Valid values are: gp2 and io1. This is only applicable for AWS",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
-				stringplanmodifier.RequiresReplace(),
+				stringplanmodifier.RequiresReplaceIf(
+					func(_ context.Context, req planmodifier.StringRequest, resp *stringplanmodifier.RequiresReplaceIfFuncResponse) {
+						if !req.PlanValue.IsUnknown() {
+							resp.RequiresReplace = true
+						}
+					},
+					"If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+					"If the value of this attribute changes, Terraform will destroy and recreate the resource.",
+				),
 			},
 		},
 		"wait_for_creation": schema.BoolAttribute{
@@ -784,7 +792,7 @@ func (r *ServiceResource) updateAllowListState(plan *ServiceResourceModel, state
 	if plan.AllowList.IsNull() && len(state.AllowList.Elements()) == 0 {
 		state.AllowList = plan.AllowList
 	}
-	if len(plan.AllowList.Elements()) == 0 && state.AllowList.IsNull() {
+	if !plan.AllowList.IsUnknown() && len(plan.AllowList.Elements()) == 0 && state.AllowList.IsNull() {
 		state.AllowList = plan.AllowList
 	}
 }
@@ -1261,6 +1269,7 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 
 	if state == nil &&
 		Contains[string](privateConnectMechanisms, plan.Mechanism.ValueString()) &&
+		!plan.AllowList.IsUnknown() &&
 		!plan.AllowList.IsNull() {
 		resp.Diagnostics.AddAttributeError(path.Root("allow_list"),
 			fmt.Sprintf("You can not set allow_list when mechanism has %q value", plan.Mechanism.ValueString()),
@@ -1270,6 +1279,10 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	if plan.Mechanism.ValueString() == "nlb" {
 		// Force mechanism update
 		resp.Plan.SetAttribute(ctx, path.Root("endpoint_allowed_accounts"), types.ListNull(types.StringType))
+	}
+
+	if state != nil && !state.AllowList.IsUnknown() && plan.AllowList.IsNull() {
+		resp.Plan.SetAttribute(ctx, path.Root("allow_list"), state.AllowList)
 	}
 }
 

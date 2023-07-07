@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
 	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
-	"github.com/pioz/faker"
 	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
@@ -369,7 +368,7 @@ func TestServiceResourcePrivateConnectWhenAllowedAccountsEmpty(t *testing.T) {
 			Nodes:        int(payload.Nodes),
 			SSLEnabled:   payload.SSLEnabled,
 			NosqlEnabled: payload.NoSQLEnabled,
-			FQDN:         faker.URL(),
+			FQDN:         "http://test-gcp.us-central1.foundation.skysql.net",
 			Status:       "pending_create",
 			CreatedOn:    int(time.Now().Unix()),
 			UpdatedOn:    int(time.Now().Unix()),
@@ -386,7 +385,7 @@ func TestServiceResourcePrivateConnectWhenAllowedAccountsEmpty(t *testing.T) {
 						},
 					},
 					Mechanism:       payload.Mechanism,
-					EndpointService: faker.UUID(),
+					EndpointService: uuid.NewString(),
 					AllowedAccounts: nil,
 				},
 			},
@@ -419,7 +418,7 @@ func TestServiceResourcePrivateConnectWhenAllowedAccountsEmpty(t *testing.T) {
 			r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
 			w.Header().Set("Content-Type", "application/json")
 			service.Status = "ready"
-			service.Endpoints[0].EndpointService = faker.UUID()
+			service.Endpoints[0].EndpointService = uuid.NewString()
 			json.NewEncoder(w).Encode(service)
 			w.WriteHeader(http.StatusOK)
 		})

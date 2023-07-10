@@ -273,6 +273,7 @@ var serviceResourceSchemaV0 = schema.Schema{
 		},
 		"endpoint_allowed_accounts": schema.ListAttribute{
 			Optional:    true,
+			Computed:    true,
 			Description: "The list of cloud accounts (aws account ids or gcp projects) that are allowed to access the service",
 			ElementType: types.StringType,
 		},

@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -276,6 +277,7 @@ var serviceResourceSchemaV0 = schema.Schema{
 			Computed:    true,
 			Description: "The list of cloud accounts (aws account ids or gcp projects) that are allowed to access the service",
 			ElementType: types.StringType,
+			Default:     listdefault.StaticValue(types.ListNull(types.StringType)),
 		},
 		"wait_for_deletion": schema.BoolAttribute{
 			Optional:    true,

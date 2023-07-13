@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 )
 
 type Client struct {
@@ -30,6 +31,24 @@ func New(baseURL string, AccessToken string) *Client {
 			SetAuthScheme("Bearer").
 			SetAuthToken(AccessToken).
 			SetBaseURL(baseURL).
+			// Set retry count too non-zero to enable retries
+			SetRetryCount(3).
+			// Default is 100 milliseconds.
+			SetRetryWaitTime(5 * time.Second).
+			// MaxWaitTime can be overridden as well.
+			// Default is 2 seconds.
+			SetRetryMaxWaitTime(20 * time.Second).
+			// SetRetryAfter sets callback to calculate wait time between retries.
+			// Default (nil) implies exponential backoff with jitter
+			SetRetryAfter(func(client *resty.Client, resp *resty.Response) (time.Duration, error) {
+				return 0, errors.New("retries quota exceeded")
+			}).
+			AddRetryCondition(
+				// RetryConditionFunc type is for retry condition function
+				// input: non-nil Response OR request execution error
+				func(r *resty.Response, err error) bool {
+					return r.StatusCode() == http.StatusInternalServerError
+				}).
 			EnableTrace(),
 	}
 }

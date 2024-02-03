@@ -3,8 +3,8 @@ package provider
 import (
 	"context"
 	"errors"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
 	"github.com/matryer/resync"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"

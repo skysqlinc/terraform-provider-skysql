@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
 	"net/url"
 	"sort"
 )

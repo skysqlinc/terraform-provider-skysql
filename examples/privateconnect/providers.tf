@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     skysql = {
-      source  = "registry.terraform.io/mariadb-corporation/skysql"
+      source  = "registry.terraform.io/skysqlinc/skysql"
       version = "1.0.0"
     }
     aws = {

@@ -2,7 +2,7 @@ terraform {
   required_version = "~>1.3.7"
   required_providers {
     skysql = {
-      source  = "registry.terraform.io/mariadb-corporation/skysql"
+      source  = "registry.terraform.io/skysqlinc/skysql"
       version = "~>1.0.0"
     }
     google = {

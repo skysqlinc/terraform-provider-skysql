@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/provider"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/provider"
 	"log"
 )
 
@@ -34,7 +34,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/mariadb-corporation/skysql",
+		Address: "registry.terraform.io/skysqlinc/skysql",
 		Debug:   debug,
 	}
 

@@ -14,8 +14,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	sdkresource "github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql"
-	"github.com/mariadb-corporation/terraform-provider-skysql/internal/skysql/provisioning"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces

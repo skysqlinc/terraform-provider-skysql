@@ -22,7 +22,7 @@ Use the navigation to the left to read about the available resources.
 
 ### Automated Installation (Recommended)
 
-The Terraform Provider for SkySQL listed on the [Terraform Registry](https://registry.terraform.io/providers/mariadb-corporation/{{.ProviderShortName}}/).
+The Terraform Provider for SkySQL listed on the [Terraform Registry](https://registry.terraform.io/providers/skysqlinc/{{.ProviderShortName}}/).
 
 #### Create a Terraform configuration file
 
@@ -34,7 +34,7 @@ Providers listed on the Terraform Registry can be automatically downloaded when 
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
+      source = "registry.terraform.io/skysqlinc/{{.ProviderShortName}}"
     }
   }
 }
@@ -48,7 +48,7 @@ You can use `version` locking and operators to require specific versions of the 
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
+      source = "registry.terraform.io/skysqlinc/{{.ProviderShortName}}"
        version = ">= x.y.z"
     }
   }
@@ -57,7 +57,7 @@ terraform {
 
 ### Manual Installation
 
-The latest release of the provider can be found on [`{{.ProviderName}}/releases`](https://github.com/mariadb-corporation/{{.ProviderName}}/releases). You can download the appropriate version of the provider for your operating system using a command line shell or a browser.
+The latest release of the provider can be found on [`{{.ProviderName}}/releases`](https://github.com/skysqlinc/{{.ProviderName}}/releases). You can download the appropriate version of the provider for your operating system using a command line shell or a browser.
 
 This can be useful in environments that do not allow direct access to the Internet.
 
@@ -71,7 +71,7 @@ The following examples use Bash on Linux (x64).
     RELEASE=x.y.z
     OS=linux
     ARCH=amd64
-    wget -q https://github.com/mariadb-corporation/{{.ProviderName}}/releases/download/${RELEASE}/{{.ProviderName}}_${RELEASE}_{OS}_{ARCH}.zip
+    wget -q https://github.com/skysqlinc/{{.ProviderName}}/releases/download/${RELEASE}/{{.ProviderName}}_${RELEASE}_{OS}_{ARCH}.zip
     ```
 
 2. Create a directory for the provider.
@@ -83,20 +83,20 @@ The following examples use Bash on Linux (x64).
     > `<registry>/<namespace>/<service>/<version>/<OS_arch>/`
 
     ```console
-    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}
+    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/skysqlinc/{{.ProviderShortName}}
     ```
 
 3. Copy the plugin to a target system and move to the Terraform plugins directory.
 
     ```console
-    mv {{.ProviderName}}_${RELEASE}_${OS}_${ARCH}.zip ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}
+    mv {{.ProviderName}}_${RELEASE}_${OS}_${ARCH}.zip ~/.terraform.d/plugins/registry.terraform.io/skysqlinc/{{.ProviderShortName}}
 
     ```
 
 4. Verify the presence of the plugin in the Terraform plugins directory.
 
     ```console
-    ls ~/.terraform.d/plugins/local/mariadb-corporation/{{.ProviderShortName}}/
+    ls ~/.terraform.d/plugins/local/skysqlinc/{{.ProviderShortName}}/
     ```
 
 #### macOS
@@ -113,7 +113,7 @@ The following example uses Bash (default) on macOS (ARM).
 
     ```console
     export RELEASE=x.y.z
-    wget -q https://github.com/mariadb-corporation/{{.ProviderName}}/releases/download/v${RELEASE}/terraform-provider-{{.ProviderShortName}}_${RELEASE}_darwin_arm64.zip
+    wget -q https://github.com/skysqlinc/{{.ProviderName}}/releases/download/v${RELEASE}/terraform-provider-{{.ProviderShortName}}_${RELEASE}_darwin_arm64.zip
     ```
 
 3. Create a directory for the provider.
@@ -125,19 +125,19 @@ The following example uses Bash (default) on macOS (ARM).
     > `<registry>/<namespace>/<service>/<version>/<OS_arch>/`
 
     ```console
-    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}/
+    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/skysqlinc/{{.ProviderShortName}}/
     ```
 
 4. Copy the plugin to a target system and move to the Terraform plugins directory.
 
     ```console
-    mv {{.ProviderName}}_${RELEASE}_darwin_arm64.zip ~/.terraform.d/plugins/registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}/
+    mv {{.ProviderName}}_${RELEASE}_darwin_arm64.zip ~/.terraform.d/plugins/registry.terraform.io/skysqlinc/{{.ProviderShortName}}/
     ```
 
 5. Verify the presence of the plugin in the Terraform plugins directory.
 
     ```console
-    ls ~/.terraform.d/plugins/local/mariadb-corporation/{{.ProviderShortName}}/
+    ls ~/.terraform.d/plugins/local/skysqlinc/{{.ProviderShortName}}/
     ```
 
 ## Configure the Terraform Configuration Files
@@ -148,7 +148,7 @@ In order to use the `{{.ProviderShortName}}` terraform provider, you need to con
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
+      source = "registry.terraform.io/skysqlinc/{{.ProviderShortName}}"
     }
   }
 }
@@ -160,7 +160,7 @@ or you can specify the provider version.
 terraform {
   required_providers {
     skysql = {
-      source = "registry.terraform.io/mariadb-corporation/{{.ProviderShortName}}"
+      source = "registry.terraform.io/skysqlinc/{{.ProviderShortName}}"
       version = ">= x.y.z"
     }
   }
@@ -177,9 +177,9 @@ $ terraform init
 Initializing the backend...
 
 Initializing provider plugins...
-- Finding latest version of mariadb-corporation/{{.ProviderShortName}}...
-- Installing mariadb-corporation/{{.ProviderShortName}} x.y.z...
-- Installed mariadb-corporation/{{.ProviderShortName}} x.y.z (unauthenticated)
+- Finding latest version of skysqlinc/{{.ProviderShortName}}...
+- Installing skysqlinc/{{.ProviderShortName}} x.y.z...
+- Installed skysqlinc/{{.ProviderShortName}} x.y.z (unauthenticated)
 ...
 
 Terraform has been successfully initialized!
@@ -195,7 +195,7 @@ To find the provider version, navigate to the working directory of your Terrafor
 $ terraform version
 Terraform x.y.z
 on darwin_arm64
-+ provider registry.terraform.io/mariadb-corporation/{{.ProviderShortName}} x.y.z
++ provider registry.terraform.io/skysqlinc/{{.ProviderShortName}} x.y.z
 ```
 
 ## Create a new SkySQL service

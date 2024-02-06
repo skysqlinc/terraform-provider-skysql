@@ -119,7 +119,7 @@ func TestServiceResourcePrivateLink(t *testing.T) {
 		service.Endpoints[0].Mechanism = "privatelink"
 		service.Endpoints[0].AllowedAccounts = []string{"mdb-cnewport"}
 		service.Endpoints[0].Visibility = "private"
-		service.Endpoints[0].EndpointService = "privatelink.mariadb.com"
+		service.Endpoints[0].EndpointService = "privatelink.skysql.com"
 		json.NewEncoder(w).Encode(&provisioning.PatchServiceEndpointsResponse{
 			{
 				Mechanism:       service.Endpoints[0].Mechanism,

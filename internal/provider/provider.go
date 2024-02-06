@@ -65,7 +65,7 @@ func getEnv(key, fallback string) string {
 
 func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	accessToken := os.Getenv("TF_SKYSQL_API_ACCESS_TOKEN")
-	baseURL := getEnv("TF_SKYSQL_API_BASE_URL", "https://api.mariadb.com")
+	baseURL := getEnv("TF_SKYSQL_API_BASE_URL", "https://api.skysql.com")
 
 	var data SkySQLProviderModel
 

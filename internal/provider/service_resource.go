@@ -673,9 +673,7 @@ func (r *ServiceResource) readServiceState(ctx context.Context, data *ServiceRes
 	} else {
 		data.VolumeIOPS = types.Int64Null()
 	}
-	if !data.VolumeType.IsNull() {
-		data.VolumeType = types.StringValue(service.StorageVolume.VolumeType)
-	}
+	data.VolumeType = types.StringValue(service.StorageVolume.VolumeType)
 	if !data.ReplicationEnabled.IsNull() {
 		data.ReplicationEnabled = types.BoolValue(service.ReplicationEnabled)
 	}

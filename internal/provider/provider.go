@@ -3,15 +3,16 @@ package provider
 import (
 	"context"
 	"errors"
-	"github.com/matryer/resync"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
 	"os"
+
+	"github.com/matryer/resync"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
 )
 
 // Ensure skySQLProvider satisfies various provider interfaces.
@@ -29,8 +30,8 @@ type skySQLProvider struct {
 
 // SkySQLProviderModel describes the provider data model.
 type SkySQLProviderModel struct {
-	BaseURL     types.String `tfsdk:"base_url"`
-	AccessToken types.String `tfsdk:"access_token"`
+	BaseURL types.String `tfsdk:"base_url"`
+	APIKey  types.String `tfsdk:"api_key"`
 }
 
 func (p *skySQLProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -42,8 +43,8 @@ func (p *skySQLProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 	resp.Schema = schema.Schema{
 		Description: "The SkySQL terraform provider",
 		Attributes: map[string]schema.Attribute{
-			"access_token": schema.StringAttribute{
-				MarkdownDescription: "SkySQL API access token",
+			"api_key": schema.StringAttribute{
+				MarkdownDescription: "SkySQL API Key",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -64,7 +65,7 @@ func getEnv(key, fallback string) string {
 }
 
 func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	accessToken := os.Getenv("TF_SKYSQL_API_ACCESS_TOKEN")
+	apiKey := os.Getenv("TF_SKYSQL_API_KEY")
 	baseURL := getEnv("TF_SKYSQL_API_BASE_URL", "https://api.skysql.com")
 
 	var data SkySQLProviderModel
@@ -77,19 +78,19 @@ func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	// Check configuration data, which should take precedence over
 	// environment variable data, if found.
-	if data.AccessToken.ValueString() != "" {
-		accessToken = data.AccessToken.ValueString()
+	if data.APIKey.ValueString() != "" {
+		apiKey = data.APIKey.ValueString()
 	}
 
 	if data.BaseURL.ValueString() != "" {
 		baseURL = data.BaseURL.ValueString()
 	}
 
-	if accessToken == "" {
+	if apiKey == "" {
 		resp.Diagnostics.AddError(
 			"Missing SkySQL Access Token Configuration",
 			"While configuring the provider, the API access token was not found in "+
-				"the TF_SKYSQL_API_ACCESS_TOKEN environment variable or provider "+
+				"the TF_SKYSQL_API_KEY environment variable or provider "+
 				"configuration block access_token attribute.",
 		)
 		// Not returning early allows the logic to collect all errors.
@@ -105,7 +106,7 @@ func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		// Not returning early allows the logic to collect all errors.
 	}
 
-	client := skysql.New(baseURL, accessToken)
+	client := skysql.New(baseURL, apiKey)
 
 	configureOnce.Do(func() {
 		_, err := client.GetVersions(ctx, skysql.WithPageSize(1))

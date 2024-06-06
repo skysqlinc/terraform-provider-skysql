@@ -21,7 +21,7 @@ func TestServiceResourceAllowlistUpdate(t *testing.T) {
 
 	testURL, expectRequest, closeAPI := mockSkySQLAPI(t)
 	defer closeAPI()
-	os.Setenv("TF_SKYSQL_API_ACCESS_TOKEN", "[token]")
+	os.Setenv("TF_SKYSQL_API_KEY", "[api-key]")
 	os.Setenv("TF_SKYSQL_API_BASE_URL", testURL)
 
 	r := require.New(t)

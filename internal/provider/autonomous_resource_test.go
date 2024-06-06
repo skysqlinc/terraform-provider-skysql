@@ -22,7 +22,7 @@ func TestAutonomousResource(t *testing.T) {
 
 	testUrl, expectRequest, close := mockSkySQLAPI(t)
 	defer close()
-	os.Setenv("TF_SKYSQL_API_ACCESS_TOKEN", "[token]")
+	os.Setenv("TF_SKYSQL_API_KEY", "[api-key]")
 	os.Setenv("TF_SKYSQL_API_BASE_URL", testUrl)
 
 	expectRequest(func(w http.ResponseWriter, req *http.Request) {
@@ -170,7 +170,7 @@ func TestModifyAutonomousResource(t *testing.T) {
 
 	testUrl, expectRequest, close := mockSkySQLAPI(t)
 	defer close()
-	os.Setenv("TF_SKYSQL_API_ACCESS_TOKEN", "[token]")
+	os.Setenv("TF_SKYSQL_API_KEY", "[api-key]")
 	os.Setenv("TF_SKYSQL_API_BASE_URL", testUrl)
 
 	expectRequest(func(w http.ResponseWriter, req *http.Request) {

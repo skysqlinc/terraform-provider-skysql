@@ -3,17 +3,19 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServiceResourceDeletionProtection(t *testing.T) {
@@ -21,7 +23,7 @@ func TestServiceResourceDeletionProtection(t *testing.T) {
 
 	testURL, expectRequest, closeAPI := mockSkySQLAPI(t)
 	defer closeAPI()
-	os.Setenv("TF_SKYSQL_API_ACCESS_TOKEN", "[token]")
+	os.Setenv("TF_SKYSQL_API_KEY", "[api_key]")
 	os.Setenv("TF_SKYSQL_API_BASE_URL", testURL)
 
 	r := require.New(t)

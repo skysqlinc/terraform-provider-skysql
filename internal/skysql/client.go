@@ -3,24 +3,26 @@ package skysql
 import (
 	"context"
 	"errors"
-	"github.com/go-resty/resty/v2"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/autonomous"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/organization"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/logging"
+
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/autonomous"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/organization"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
 )
 
 type Client struct {
 	HTTPClient *resty.Client
 }
 
-func New(baseURL string, AccessToken string) *Client {
+func New(baseURL string, apiKey string) *Client {
 	transport := logging.NewLoggingHTTPTransport(http.DefaultTransport)
 
 	clientName, _ := os.Executable()
@@ -28,8 +30,7 @@ func New(baseURL string, AccessToken string) *Client {
 	return &Client{
 		HTTPClient: resty.NewWithClient(&http.Client{Transport: transport}).
 			SetHeader("User-Agent", filepath.Base(clientName)).
-			SetAuthScheme("Bearer").
-			SetAuthToken(AccessToken).
+			SetHeader("X-API-Key", apiKey).
 			SetBaseURL(baseURL).
 			// Set retry count too non-zero to enable retries
 			SetRetryCount(3).

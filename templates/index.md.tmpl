@@ -205,7 +205,7 @@ on darwin_arm64
 2. Set environment variables:
 
 ```bash
-$ export TF_SKYSQL_API_ACCESS_TOKEN=my-access-token
+$ export TF_SKYSQL_API_KEY=my-api-key
 ```
 
 3. Create a new SkySQL service using the example below:
@@ -280,20 +280,20 @@ which are applied in the following order:
 configuration and risks secret leakage should this file ever be committed to a
 public version control system.
 
-Credentials can be provided by adding an `access_token` to the provider configuration block.
+Credentials can be provided by adding an `api_key` to the provider configuration block.
 
 Usage:
 
 ```terraform
 
 provider "skysql" {
-  access_token = "my-access-token"
+  api_key = "my-api-key"
 }
 ```
 
 ### Environment Variables
 
-SkySQL Access token can be provided by using the `TF_SKYSQL_API_ACCESS_TOKEN` environment variable.
+SkySQL Access token can be provided by using the `TF_SKYSQL_API_KEY` environment variable.
 
 For example:
 
@@ -302,7 +302,7 @@ provider "skysql" {}
 ```
 
 ```sh
-$ export TF_SKYSQL_API_ACCESS_TOKEN="my-access-token"
+$ export TF_SKYSQL_API_KEY="my-api-key"
 
 $ terraform plan
 ```

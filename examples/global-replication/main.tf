@@ -98,7 +98,7 @@ resource "skysql_allow_list" "default" {
 
 # Example how you can generate a command line for the database connection
 output "skysql_cmd" {
-  value = "mariadb --host ${data.skysql_service.default.fqdn} --port 3306 --user ${data.skysql_service.default.service_id} -p --ssl-ca ~/Downloads/skysql_chain_2022.pem"
+  value = "mariadb --host ${data.skysql_service.default.fqdn} --port 3306 --user ${data.skysql_service.default.service_id} -p --ssl-verify-server-cert"
 }
 
 

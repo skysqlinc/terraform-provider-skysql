@@ -200,7 +200,7 @@ on darwin_arm64
 
 ## Create a new SkySQL service
 
-1. Go to MariaDB ID: [https://id.mariadb.com/account/api/](https://id.mariadb.com/account/api/) and generate an API key
+1. Go to User API Keys Page: [https://app.skysql.com/user-profile/api-keys](https://app.skysql.com/user-profile/api-keys) and generate an API key
 
 2. Set environment variables:
 

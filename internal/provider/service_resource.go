@@ -462,6 +462,12 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		AvailabilityZone:   state.AvailabilityZone.ValueString(),
 	}
 
+	if !Contains[string]([]string{"gcp", "aws", "azure"}, createServiceRequest.Provider) {
+		resp.Diagnostics.AddAttributeError(path.Root("provider"),
+			"Invalid provider value",
+			fmt.Sprintf("The %q is an invalid value. Allowed values: aws, gcp, azure", createServiceRequest.Provider))
+	}
+
 	if !state.MaxscaleSize.IsUnknown() && !state.MaxscaleSize.IsNull() && len(state.MaxscaleSize.ValueString()) > 0 {
 		createServiceRequest.MaxscaleSize = toPtr[string](state.MaxscaleSize.ValueString())
 	} else {
@@ -1135,10 +1141,10 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 		return
 	}
 
-	if !Contains[string]([]string{"gcp", "aws"}, plan.Provider.ValueString()) {
+	if !Contains[string]([]string{"gcp", "aws", "azure"}, plan.Provider.ValueString()) {
 		resp.Diagnostics.AddAttributeError(path.Root("provider"),
 			"Invalid provider value",
-			fmt.Sprintf("The %q is an invalid value. Allowed values: aws or gcp", plan.Provider.ValueString()))
+			fmt.Sprintf("The %q is an invalid value. Allowed values: aws, gcp, or azure", plan.Provider.ValueString()))
 	}
 
 	if plan.Provider.ValueString() == "aws" {
@@ -1149,14 +1155,13 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 					"Use: io1 for volume_type if volume_iops is set")
 			return
 		}
-		if !plan.VolumeIOPS.IsNull() &&
-			plan.VolumeType.ValueString() != "io1" {
+		if !plan.VolumeIOPS.IsNull() && plan.VolumeType.ValueString() != "io1" {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
 				"volume_type must be io1 when you want to set IOPS",
 				"Use: io1 for volume_type if volume_iops is set")
 			return
 		}
-	} else {
+	} else if plan.Provider.ValueString() == "gcp" {
 		if !(plan.VolumeType.ValueString() == "" || plan.VolumeType.IsNull() || plan.VolumeType.ValueString() == "pd-ssd") {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("volume_type"),
@@ -1176,6 +1181,19 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 			resp.Diagnostics.AddAttributeError(path.Root("volume_iops"),
 				fmt.Sprintf("volume_iops is not supported for %q provider", plan.Provider.ValueString()),
 				fmt.Sprintf("Volume IOPS are not supported for %q provider", plan.Provider.ValueString()))
+			return
+		}
+	} else if plan.Provider.ValueString() == "azure" {
+		if plan.VolumeType.ValueString() != "" && plan.VolumeType.ValueString() != "StandardSSD_LRS" {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
+				"volume_type is not supported for azure provider",
+				"Volume type is not supported for azure provider")
+			return
+		}
+		if !plan.VolumeIOPS.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_iops"),
+				"volume_iops is not supported for azure provider",
+				"Volume IOPS are not supported for azure provider")
 			return
 		}
 	}

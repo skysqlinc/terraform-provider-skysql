@@ -12,7 +12,7 @@ resource "skysql_service" "default" {
   storage        = 100
   ssl_enabled    = true
   version        = data.skysql_versions.default.versions[0].name
-  volume_type    = "gp2"
+  volume_type    = "gp3"
   # The service create is an asynchronous operation.
   # if you want to wait for the service to be created set wait_for_creation to true
   wait_for_creation = true

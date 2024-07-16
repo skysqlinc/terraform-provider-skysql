@@ -26,7 +26,7 @@ resource "skysql_service" "default" {
   storage        = 100
   ssl_enabled    = true
   version        = data.skysql_versions.default.versions[0].name
-  volume_type    = "gp2"
+  volume_type    = "gp3"
   allow_list = [
     {
       "ip" : "127.0.0.1/32",

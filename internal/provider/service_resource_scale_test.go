@@ -80,6 +80,7 @@ func TestServiceResourceScaleTest(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,

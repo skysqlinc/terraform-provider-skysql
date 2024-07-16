@@ -80,6 +80,7 @@ Read-Only:
 Optional:
 
 - `iops` (Number) The number of IOPS for the storage volume. This is only applicable for io1 volumes.
+- `throughput` (Number) The Throughput for the storage volume. This is only applicable for io1 volumes.
 
 Read-Only:
 

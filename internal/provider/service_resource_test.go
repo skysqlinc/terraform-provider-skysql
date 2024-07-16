@@ -149,10 +149,12 @@ resource "skysql_service" default {
 							Size       int    `json:"size"`
 							VolumeType string `json:"volume_type"`
 							IOPS       int    `json:"iops"`
+							Throughput int    `json:"throughput"`
 						}{
 							Size:       int(payload.Storage),
 							VolumeType: payload.VolumeType,
 							IOPS:       int(payload.VolumeIOPS),
+							Throughput: int(payload.VolumeThroughput),
 						},
 						OutboundIps:        nil,
 						IsActive:           true,
@@ -375,10 +377,12 @@ resource "skysql_service" default {
 							Size       int    `json:"size"`
 							VolumeType string `json:"volume_type"`
 							IOPS       int    `json:"iops"`
+							Throughput int    `json:"throughput"`
 						}{
 							Size:       int(payload.Storage),
 							VolumeType: payload.VolumeType,
 							IOPS:       int(payload.VolumeIOPS),
+							Throughput: int(payload.VolumeThroughput),
 						},
 						OutboundIps:        nil,
 						IsActive:           false,
@@ -522,10 +526,12 @@ resource "skysql_service" default {
 							Size       int    `json:"size"`
 							VolumeType string `json:"volume_type"`
 							IOPS       int    `json:"iops"`
+							Throughput int    `json:"throughput"`
 						}{
 							Size:       int(payload.Storage),
 							VolumeType: payload.VolumeType,
 							IOPS:       int(payload.VolumeIOPS),
+							Throughput: int(payload.VolumeThroughput),
 						},
 						OutboundIps:        nil,
 						IsActive:           true,
@@ -631,7 +637,7 @@ resource "skysql_service" default {
 					w.WriteHeader(http.StatusOK)
 				})
 			},
-			expectError: regexp.MustCompile(`volume_type must be io1 when you want to set IOPS`),
+			expectError: regexp.MustCompile(`volume_type must be io1|gp2|gp3 when you want to set IOPS`),
 		},
 	}
 

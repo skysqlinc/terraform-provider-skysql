@@ -13,6 +13,7 @@ type CreateServiceRequest struct {
 	Topology           string          `json:"topology"`
 	Storage            uint            `json:"storage"`
 	VolumeIOPS         uint            `json:"volume_iops"`
+	VolumeThroughput   uint            `json:"volume_throughput"`
 	SSLEnabled         bool            `json:"ssl_enabled"`
 	NoSQLEnabled       bool            `json:"nosql_enabled"`
 	VolumeType         string          `json:"volume_type,omitempty"`

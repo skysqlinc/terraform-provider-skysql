@@ -164,7 +164,7 @@ func TestServiceResourceGCPVolumeType(t *testing.T) {
 	})
 }
 
-func TestServiceResourceAWSGP2VolumeType(t *testing.T) {
+func TestServiceResourceAWSGP3VolumeType(t *testing.T) {
 	const serviceID = "dbdgf42002418"
 
 	testURL, expectRequest, closeAPI := mockSkySQLAPI(t)
@@ -299,13 +299,15 @@ func TestServiceResourceAWSGP2VolumeType(t *testing.T) {
 					storage        = 100
 					ssl_enabled    = true
 					version        = "10.6.11-6-1"
-					volume_type    = "gp2"
+					volume_type    = "gp3"
+					volume_iops    = 3000
+					volume_throughput = 125
 					deletion_protection = "false"
 				}
 	            `,
 				Check: resource.ComposeAggregateTestCheckFunc([]resource.TestCheckFunc{
 					resource.TestCheckResourceAttr("skysql_service.default", "id", serviceID),
-					resource.TestCheckResourceAttr("skysql_service.default", "volume_type", "gp2"),
+					resource.TestCheckResourceAttr("skysql_service.default", "volume_type", "gp3"),
 				}...),
 			},
 		},

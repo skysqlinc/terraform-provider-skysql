@@ -249,7 +249,7 @@ var serviceResourceSchemaV0 = schema.Schema{
 		"volume_type": schema.StringAttribute{
 			Optional:    true,
 			Computed:    true,
-			Description: "The volume type. Valid values are: gp3, gp2, and io1. This is only applicable for AWS",
+			Description: "The volume type. Valid values are: gp3 and io1. This is only applicable for AWS",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 				stringplanmodifier.RequiresReplaceIf(

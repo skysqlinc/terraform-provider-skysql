@@ -450,6 +450,7 @@ func TestServiceResourceAWSIO1VolumeType(t *testing.T) {
 					ssl_enabled    = true
 					version        = "10.6.11-6-1"
 					volume_type    = "io1"
+				    volume_iops    = 3000
 					deletion_protection = "false"
 				}
 	            `,

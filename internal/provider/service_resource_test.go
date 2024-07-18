@@ -606,7 +606,7 @@ resource "skysql_service" default {
 			expectError: regexp.MustCompile(`Invalid provider value`),
 		},
 		{
-			name: "create service when unexpected volume_type is not set for volume_iops",
+			name: "volume_type required for aws",
 			testResource: fmt.Sprintf(`
 				resource "skysql_service" default {
 				 service_type   = "transactional"
@@ -615,7 +615,6 @@ resource "skysql_service" default {
 				 region         = "us-central1"
 				 name           = "%s"
 				 architecture   = "amd64"
-		         volume_iops     = 100
 				 nodes          = 1
 				 size           = "sky-2x8"
 				 storage        = 100
@@ -637,7 +636,146 @@ resource "skysql_service" default {
 					w.WriteHeader(http.StatusOK)
 				})
 			},
-			expectError: regexp.MustCompile(`volume_type must be io1|gp2|gp3 when you want to set IOPS`),
+			expectError: regexp.MustCompile(`volume_type provided is not supported. Use: io1 or gp3 for volume_type.`),
+		},
+		{
+			name: "invalid volume_type for aws",
+			testResource: fmt.Sprintf(`
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "aws"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				 volume_type = "gp2"
+				}
+					            `, GenerateServiceName(t)),
+			before: func(r *require.Assertions) {
+				configureOnce.Reset()
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodGet, req.Method)
+					r.Equal("/provisioning/v1/versions", req.URL.Path)
+					r.Equal("page_size=1", req.URL.RawQuery)
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode([]provisioning.Version{})
+					w.WriteHeader(http.StatusOK)
+				})
+			},
+			expectError: regexp.MustCompile(`volume_type provided is not supported. Use: io1 or gp3 for volume_type.`),
+		},
+		{
+			name: "volume_iops are required for aws",
+			testResource: fmt.Sprintf(`
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "aws"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				 volume_type    = "io1"
+				}
+					            `, GenerateServiceName(t)),
+			before: func(r *require.Assertions) {
+				configureOnce.Reset()
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodGet, req.Method)
+					r.Equal("/provisioning/v1/versions", req.URL.Path)
+					r.Equal("page_size=1", req.URL.RawQuery)
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode([]provisioning.Version{})
+					w.WriteHeader(http.StatusOK)
+				})
+			},
+			expectError: regexp.MustCompile(`volume_iops are required for AWS`),
+		},
+		{
+			name: "volume_throughput is not supported for io1",
+			testResource: fmt.Sprintf(`
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "aws"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				 volume_type    = "io1"
+                 volume_iops    = 3000
+  				 volume_throughput = 125
+				}
+					            `, GenerateServiceName(t)),
+			before: func(r *require.Assertions) {
+				configureOnce.Reset()
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodGet, req.Method)
+					r.Equal("/provisioning/v1/versions", req.URL.Path)
+					r.Equal("page_size=1", req.URL.RawQuery)
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode([]provisioning.Version{})
+					w.WriteHeader(http.StatusOK)
+				})
+			},
+			expectError: regexp.MustCompile(`volume_throughput is supported only for gp3 volume_type for AWS`),
+		},
+		{
+			name: "volume_throughput is required for gp3",
+			testResource: fmt.Sprintf(`
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "es-single"
+				 cloud_provider = "aws"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+				 nodes          = 1
+				 size           = "sky-2x8"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				 volume_type    = "gp3"
+                 volume_iops    = 3000
+				}
+					            `, GenerateServiceName(t)),
+			before: func(r *require.Assertions) {
+				configureOnce.Reset()
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodGet, req.Method)
+					r.Equal("/provisioning/v1/versions", req.URL.Path)
+					r.Equal("page_size=1", req.URL.RawQuery)
+					w.Header().Set("Content-Type", "application/json")
+					json.NewEncoder(w).Encode([]provisioning.Version{})
+					w.WriteHeader(http.StatusOK)
+				})
+			},
+			expectError: regexp.MustCompile(`volume_throughput is required for gp3 volume_type for AWS`),
 		},
 	}
 

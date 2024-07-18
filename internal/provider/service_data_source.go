@@ -201,17 +201,17 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 					},
 					"volume_type": schema.StringAttribute{
 						Computed:    true,
-						Description: "The type of the storage volume. Possible values are: gp2, io1 etc",
+						Description: "The type of the storage volume. Possible values are: gp3, io1 etc",
 					},
 					"iops": schema.Int64Attribute{
 						Computed:    true,
 						Optional:    true,
-						Description: "The number of IOPS for the storage volume. This is only applicable for io1 volumes.",
+						Description: "The number of IOPS for the storage volume. This is only applicable for io1 and gp3 volumes.",
 					},
 					"throughput": schema.Int64Attribute{
 						Computed:    true,
 						Optional:    true,
-						Description: "The Throughput for the storage volume. This is only applicable for io1 volumes.",
+						Description: "The Throughput for the storage volume. This is only applicable for gp3 volumes.",
 					},
 				},
 			},

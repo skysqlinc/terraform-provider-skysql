@@ -1169,26 +1169,42 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	}
 
 	if plan.Provider.ValueString() == "aws" {
-		if !plan.VolumeIOPS.IsNull() && plan.VolumeType.IsNull() {
+
+		if plan.VolumeType.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
 				"volume_type is required",
-				"volume_typed is required when volume_iops is set. "+
-					"Use: io1|gp2|gp3 for volume_type if volume_iops is set")
+				"volume_type is required for AWS. Use: io1 or gp3 for volume_type.")
 			return
 		}
-		if !plan.VolumeThroughput.IsNull() && plan.VolumeType.IsNull() {
+
+		if plan.VolumeType.ValueString() != "io1" && plan.VolumeType.ValueString() != "gp3" {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
-				"volume_type is required",
-				"volume_typed is required when volume_throughput is set. "+
-					"Use: io1|gp2|gp3 for volume_type if volume_throughput is set")
+				"volume_type is not supported",
+				"volume_type provided is not supported. Use: io1 or gp3 for volume_type.")
 			return
 		}
-		if !plan.VolumeIOPS.IsNull() && (plan.VolumeType.ValueString() != "io1" && plan.VolumeType.ValueString() != "gp2" && plan.VolumeType.ValueString() != "gp3") {
-			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
-				"volume_type must be io1|gp2|gp3 when you want to set IOPS",
-				"Use: io1|gp2|gp3 for volume_type if volume_iops is set")
+
+		if plan.VolumeIOPS.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_iops"),
+				"volume_iops are required",
+				"volume_iops are required for AWS")
 			return
 		}
+
+		if plan.VolumeType.ValueString() == "io1" && !plan.VolumeThroughput.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_throughput"),
+				"volume_throughput is not supported for io1",
+				"volume_throughput is supported only for gp3 volume_type for AWS")
+			return
+		}
+
+		if plan.VolumeType.ValueString() == "gp3" && plan.VolumeThroughput.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_throughput"),
+				"volume_throughput is required",
+				"volume_throughput is required for gp3 volume_type for AWS")
+			return
+		}
+
 	} else if plan.Provider.ValueString() == "gcp" {
 		if !(plan.VolumeType.ValueString() == "" || plan.VolumeType.IsNull() || plan.VolumeType.ValueString() == "pd-ssd") {
 			resp.Diagnostics.AddAttributeError(

@@ -82,10 +82,12 @@ func TestServiceResourcePrivateLink(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
 				IOPS:       int(payload.VolumeIOPS),
+				Throughput: int(payload.VolumeThroughput),
 			},
 			OutboundIps:        nil,
 			IsActive:           true,
@@ -393,10 +395,12 @@ func TestServiceResourcePrivateConnectWhenAllowedAccountsEmpty(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
 				IOPS:       int(payload.VolumeIOPS),
+				Throughput: int(payload.VolumeThroughput),
 			},
 			OutboundIps:        nil,
 			IsActive:           true,

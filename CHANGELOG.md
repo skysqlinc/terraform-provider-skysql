@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.1] - 2024-07-16
+### Fixed
+- `gp3` volume type support for AWS.
+- `volume_throughput` support for AWS GP3 storage volume type.
+
 ## [3.1.0] - 2024-07-15
 ### Features
 - `azure` provider is now supported.

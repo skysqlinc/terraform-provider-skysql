@@ -14,19 +14,21 @@ Creates and manages a service in SkySQL
 ```terraform
 # Create a service
 resource "skysql_service" "default" {
-  project_id     = data.skysql_projects.default.projects[0].id
-  service_type   = "transactional"
-  topology       = "es-single"
-  cloud_provider = "aws"
-  region         = "us-east-1"
-  name           = "myservice"
-  architecture   = "amd64"
-  nodes          = 1
-  size           = "sky-2x8"
-  storage        = 100
-  ssl_enabled    = true
-  version        = data.skysql_versions.default.versions[0].name
-  volume_type    = "gp2"
+  project_id        = data.skysql_projects.default.projects[0].id
+  service_type      = "transactional"
+  topology          = "es-single"
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  name              = "myservice"
+  architecture      = "amd64"
+  nodes             = 1
+  size              = "sky-2x8"
+  storage           = 100
+  ssl_enabled       = true
+  version           = data.skysql_versions.default.versions[0].name
+  volume_type       = "gp3"
+  volume_iops       = 3000
+  volume_throughput = 125
   # The service create is an asynchronous operation.
   # if you want to wait for the service to be created set wait_for_creation to true
   wait_for_creation = true
@@ -66,7 +68,8 @@ resource "skysql_service" "default" {
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `version` (String) The software version
 - `volume_iops` (Number) The volume IOPS. This is only applicable for AWS
-- `volume_type` (String) The volume type. Valid values are: gp2 and io1. This is only applicable for AWS
+- `volume_throughput` (Number) The volume Throughput. This is only applicable for AWS
+- `volume_type` (String) The volume type. Valid values are: gp3 and io1. This is only applicable for AWS
 - `wait_for_creation` (Boolean) Whether to wait for the service to be created. Valid values are: true or false
 - `wait_for_deletion` (Boolean) Whether to wait for the service to be deleted. Valid values are: true or false
 - `wait_for_update` (Boolean) Whether to wait for the service to be updated. Valid values are: true or false

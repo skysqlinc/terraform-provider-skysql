@@ -78,6 +78,7 @@ type ServiceResourceModel struct {
 	Topology           types.String   `tfsdk:"topology"`
 	Storage            types.Int64    `tfsdk:"storage"`
 	VolumeIOPS         types.Int64    `tfsdk:"volume_iops"`
+	VolumeThroughput   types.Int64    `tfsdk:"volume_throughput"`
 	SSLEnabled         types.Bool     `tfsdk:"ssl_enabled"`
 	NoSQLEnabled       types.Bool     `tfsdk:"nosql_enabled"`
 	VolumeType         types.String   `tfsdk:"volume_type"`
@@ -221,6 +222,13 @@ var serviceResourceSchemaV0 = schema.Schema{
 				int64planmodifier.UseStateForUnknown(),
 			},
 		},
+		"volume_throughput": schema.Int64Attribute{
+			Optional:    true,
+			Description: "The volume Throughput. This is only applicable for AWS",
+			PlanModifiers: []planmodifier.Int64{
+				int64planmodifier.UseStateForUnknown(),
+			},
+		},
 		"ssl_enabled": schema.BoolAttribute{
 			Optional:    true,
 			Computed:    true,
@@ -241,7 +249,7 @@ var serviceResourceSchemaV0 = schema.Schema{
 		"volume_type": schema.StringAttribute{
 			Optional:    true,
 			Computed:    true,
-			Description: "The volume type. Valid values are: gp2 and io1. This is only applicable for AWS",
+			Description: "The volume type. Valid values are: gp3 and io1. This is only applicable for AWS",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.UseStateForUnknown(),
 				stringplanmodifier.RequiresReplaceIf(
@@ -452,6 +460,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		Topology:           state.Topology.ValueString(),
 		Storage:            uint(state.Storage.ValueInt64()),
 		VolumeIOPS:         uint(state.VolumeIOPS.ValueInt64()),
+		VolumeThroughput:   uint(state.VolumeThroughput.ValueInt64()),
 		SSLEnabled:         state.SSLEnabled.ValueBool(),
 		NoSQLEnabled:       state.NoSQLEnabled.ValueBool(),
 		VolumeType:         state.VolumeType.ValueString(),
@@ -522,6 +531,11 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		state.VolumeIOPS = types.Int64Value(int64(service.StorageVolume.IOPS))
 	} else {
 		state.VolumeIOPS = types.Int64Null()
+	}
+	if service.StorageVolume.Throughput > 0 {
+		state.VolumeThroughput = types.Int64Value(int64(service.StorageVolume.Throughput))
+	} else {
+		state.VolumeThroughput = types.Int64Null()
 	}
 	if service.StorageVolume.VolumeType != "" {
 		state.VolumeType = types.StringValue(service.StorageVolume.VolumeType)
@@ -679,6 +693,11 @@ func (r *ServiceResource) readServiceState(ctx context.Context, data *ServiceRes
 	} else {
 		data.VolumeIOPS = types.Int64Null()
 	}
+	if !data.VolumeThroughput.IsNull() && service.StorageVolume.Throughput > 0 {
+		data.VolumeThroughput = types.Int64Value(int64(service.StorageVolume.Throughput))
+	} else {
+		data.VolumeThroughput = types.Int64Null()
+	}
 	data.VolumeType = types.StringValue(service.StorageVolume.VolumeType)
 	if !data.ReplicationEnabled.IsNull() {
 		data.ReplicationEnabled = types.BoolValue(service.ReplicationEnabled)
@@ -805,16 +824,18 @@ func (r *ServiceResource) updateAllowListState(plan *ServiceResourceModel, state
 }
 
 func (r *ServiceResource) updateServiceStorage(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
-	if plan.Storage.ValueInt64() != state.Storage.ValueInt64() || plan.VolumeIOPS.ValueInt64() != state.VolumeIOPS.ValueInt64() {
+	if plan.Storage.ValueInt64() != state.Storage.ValueInt64() || plan.VolumeIOPS.ValueInt64() != state.VolumeIOPS.ValueInt64() || plan.VolumeThroughput.ValueInt64() != state.VolumeThroughput.ValueInt64() {
 		tflog.Info(ctx, "Updating storage size for the service", map[string]interface{}{
-			"id":        state.ID.ValueString(),
-			"from":      state.Storage.ValueInt64(),
-			"to":        plan.Storage.ValueInt64(),
-			"iops_from": state.VolumeIOPS.ValueInt64(),
-			"iops_to":   plan.VolumeIOPS.ValueInt64(),
+			"id":              state.ID.ValueString(),
+			"from":            state.Storage.ValueInt64(),
+			"to":              plan.Storage.ValueInt64(),
+			"iops_from":       state.VolumeIOPS.ValueInt64(),
+			"iops_to":         plan.VolumeIOPS.ValueInt64(),
+			"throughput_from": state.VolumeThroughput.ValueInt64(),
+			"throughput_to":   plan.VolumeThroughput.ValueInt64(),
 		})
 
-		err := r.client.ModifyServiceStorage(ctx, state.ID.ValueString(), plan.Storage.ValueInt64(), plan.VolumeIOPS.ValueInt64())
+		err := r.client.ModifyServiceStorage(ctx, state.ID.ValueString(), plan.Storage.ValueInt64(), plan.VolumeIOPS.ValueInt64(), plan.VolumeThroughput.ValueInt64())
 		if err != nil {
 			resp.Diagnostics.AddError("Error updating a storage for the service",
 				fmt.Sprintf("Unable to update a storage size for the service, got error: %s", err))
@@ -1148,19 +1169,42 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	}
 
 	if plan.Provider.ValueString() == "aws" {
-		if !plan.VolumeIOPS.IsNull() && plan.VolumeType.IsNull() {
+
+		if plan.VolumeType.IsNull() {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
-				"volume_type is require",
-				"volume_type is required when volume_iops is set. "+
-					"Use: io1 for volume_type if volume_iops is set")
+				"volume_type is required",
+				"volume_type is required for AWS. Use: io1 or gp3 for volume_type.")
 			return
 		}
-		if !plan.VolumeIOPS.IsNull() && plan.VolumeType.ValueString() != "io1" {
+
+		if plan.VolumeType.ValueString() != "io1" && plan.VolumeType.ValueString() != "gp3" {
 			resp.Diagnostics.AddAttributeError(path.Root("volume_type"),
-				"volume_type must be io1 when you want to set IOPS",
-				"Use: io1 for volume_type if volume_iops is set")
+				"volume_type is not supported",
+				"volume_type provided is not supported. Use: io1 or gp3 for volume_type.")
 			return
 		}
+
+		if plan.VolumeIOPS.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_iops"),
+				"volume_iops are required",
+				"volume_iops are required for AWS")
+			return
+		}
+
+		if plan.VolumeType.ValueString() == "io1" && !plan.VolumeThroughput.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_throughput"),
+				"volume_throughput is not supported for io1",
+				"volume_throughput is supported only for gp3 volume_type for AWS")
+			return
+		}
+
+		if plan.VolumeType.ValueString() == "gp3" && plan.VolumeThroughput.IsNull() {
+			resp.Diagnostics.AddAttributeError(path.Root("volume_throughput"),
+				"volume_throughput is required",
+				"volume_throughput is required for gp3 volume_type for AWS")
+			return
+		}
+
 	} else if plan.Provider.ValueString() == "gcp" {
 		if !(plan.VolumeType.ValueString() == "" || plan.VolumeType.IsNull() || plan.VolumeType.ValueString() == "pd-ssd") {
 			resp.Diagnostics.AddAttributeError(

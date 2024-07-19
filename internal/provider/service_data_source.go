@@ -68,6 +68,7 @@ type StorageVolumeDataSourceModel struct {
 	Size       types.Int64  `tfsdk:"size"`
 	VolumeType types.String `tfsdk:"volume_type"`
 	IOPS       types.Int64  `tfsdk:"iops"`
+	Throughput types.Int64  `tfsdk:"throughput"`
 }
 
 func (d *ServiceDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -200,12 +201,17 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 					},
 					"volume_type": schema.StringAttribute{
 						Computed:    true,
-						Description: "The type of the storage volume. Possible values are: gp2, io1 etc",
+						Description: "The type of the storage volume. Possible values are: gp3, io1 etc",
 					},
 					"iops": schema.Int64Attribute{
 						Computed:    true,
 						Optional:    true,
-						Description: "The number of IOPS for the storage volume. This is only applicable for io1 volumes.",
+						Description: "The number of IOPS for the storage volume. This is only applicable for io1 and gp3 volumes.",
+					},
+					"throughput": schema.Int64Attribute{
+						Computed:    true,
+						Optional:    true,
+						Description: "The Throughput for the storage volume. This is only applicable for gp3 volumes.",
 					},
 				},
 			},
@@ -318,6 +324,7 @@ func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		Size:       types.Int64Value(int64(service.StorageVolume.Size)),
 		VolumeType: types.StringValue(service.StorageVolume.VolumeType),
 		IOPS:       types.Int64Value(int64(service.StorageVolume.IOPS)),
+		Throughput: types.Int64Value(int64(service.StorageVolume.Throughput)),
 	}
 
 	data.OutboundIps = make([]types.String, len(service.OutboundIps))

@@ -24,6 +24,7 @@ type Service struct {
 		Size       int    `json:"size"`
 		VolumeType string `json:"volume_type"`
 		IOPS       int    `json:"iops"`
+		Throughput int    `json:"throughput"`
 	} `json:"storage_volume"`
 	OutboundIps        []string `json:"outbound_ips"`
 	IsActive           bool     `json:"is_active"`

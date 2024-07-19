@@ -300,11 +300,11 @@ func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, 
 	return err
 }
 
-func (c *Client) ModifyServiceStorage(ctx context.Context, serviceID string, size int64, iops int64) error {
+func (c *Client) ModifyServiceStorage(ctx context.Context, serviceID string, size int64, iops int64, throughput int64) error {
 	resp, err := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
-		SetBody(&provisioning.UpdateStorageRequest{Size: size, IOPS: iops}).
+		SetBody(&provisioning.UpdateStorageRequest{Size: size, IOPS: iops, Throughput: throughput}).
 		SetError(&ErrorResponse{}).
 		Patch("/provisioning/v1/services/" + serviceID + "/storage")
 	if err != nil {

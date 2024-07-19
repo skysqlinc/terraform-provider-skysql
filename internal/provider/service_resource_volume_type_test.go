@@ -81,10 +81,12 @@ func TestServiceResourceGCPVolumeType(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
 				IOPS:       int(payload.VolumeIOPS),
+				Throughput: int(payload.VolumeThroughput),
 			},
 			OutboundIps:        nil,
 			IsActive:           true,
@@ -162,7 +164,7 @@ func TestServiceResourceGCPVolumeType(t *testing.T) {
 	})
 }
 
-func TestServiceResourceAWSGP2VolumeType(t *testing.T) {
+func TestServiceResourceAWSGP3VolumeType(t *testing.T) {
 	const serviceID = "dbdgf42002418"
 
 	testURL, expectRequest, closeAPI := mockSkySQLAPI(t)
@@ -227,10 +229,12 @@ func TestServiceResourceAWSGP2VolumeType(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
 				IOPS:       int(payload.VolumeIOPS),
+				Throughput: int(payload.VolumeThroughput),
 			},
 			OutboundIps:        nil,
 			IsActive:           true,
@@ -295,13 +299,15 @@ func TestServiceResourceAWSGP2VolumeType(t *testing.T) {
 					storage        = 100
 					ssl_enabled    = true
 					version        = "10.6.11-6-1"
-					volume_type    = "gp2"
+					volume_type    = "gp3"
+					volume_iops    = 3000
+					volume_throughput = 125
 					deletion_protection = "false"
 				}
 	            `,
 				Check: resource.ComposeAggregateTestCheckFunc([]resource.TestCheckFunc{
 					resource.TestCheckResourceAttr("skysql_service.default", "id", serviceID),
-					resource.TestCheckResourceAttr("skysql_service.default", "volume_type", "gp2"),
+					resource.TestCheckResourceAttr("skysql_service.default", "volume_type", "gp3"),
 				}...),
 			},
 		},
@@ -373,10 +379,12 @@ func TestServiceResourceAWSIO1VolumeType(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
 				IOPS:       int(payload.VolumeIOPS),
+				Throughput: int(payload.VolumeThroughput),
 			},
 			OutboundIps:        nil,
 			IsActive:           true,
@@ -442,6 +450,7 @@ func TestServiceResourceAWSIO1VolumeType(t *testing.T) {
 					ssl_enabled    = true
 					version        = "10.6.11-6-1"
 					volume_type    = "io1"
+				    volume_iops    = 3000
 					deletion_protection = "false"
 				}
 	            `,
@@ -519,10 +528,12 @@ func TestServiceResourceAzureVolumeType(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
 				IOPS:       int(payload.VolumeIOPS),
+				Throughput: int(payload.VolumeThroughput),
 			},
 			OutboundIps:        nil,
 			IsActive:           true,

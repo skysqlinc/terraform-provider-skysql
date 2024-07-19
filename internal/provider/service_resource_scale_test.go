@@ -80,6 +80,7 @@ func TestServiceResourceScaleTest(t *testing.T) {
 				Size       int    `json:"size"`
 				VolumeType string `json:"volume_type"`
 				IOPS       int    `json:"iops"`
+				Throughput int    `json:"throughput"`
 			}{
 				Size:       int(payload.Storage),
 				VolumeType: payload.VolumeType,
@@ -241,6 +242,7 @@ func TestServiceResourceScaleTest(t *testing.T) {
 				  size           = "sky-2x8"
 				  storage        = 100
  				  volume_type   = "io1"
+                  volume_iops   = 3000
 				  ssl_enabled    = true
 				  version        = "10.6.11-6-1"
 				  wait_for_creation = true
@@ -266,7 +268,7 @@ func TestServiceResourceScaleTest(t *testing.T) {
 				 size           = "sky-4x16"
 				 storage        = 200
 				 volume_type   = "io1"
-				 volume_iops   = "1"
+				 volume_iops   = 1000
 				 ssl_enabled    = true
 				 version        = "10.6.11-6-1"
 				 wait_for_creation = true

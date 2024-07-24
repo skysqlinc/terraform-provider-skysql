@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.1.2] - 2024-07-24
+### Package Vulnerability Updates
+- upgraded google.golang.org/protobuf v1.30.0 => v1.34.2
+- upgraded golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d => v0.25.0
+- upgraded golang.org/x/net v0.8.0 => v0.27.0
+- upgraded golang.org/x/sys v0.6.0 => v0.22.0
+- upgraded golang.org/x/text v0.8.0 => v0.16.0
+
 ## [3.1.1] - 2024-07-16
 ### Fixed
 - `gp3` volume type support for AWS.

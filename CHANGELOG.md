@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.1.3] - 2024-07-25
+### Package Updates
+- upgraded go 1.19 => 1.21
+- added toolchain go1.22.3
+- upgraded github.com/golang/protobuf v1.5.2 => v1.5.4
+- upgraded github.com/google/go-cmp v0.5.9 => v0.6.0
+- upgraded github.com/google/uuid v1.3.0 => v1.6.0
+- upgraded google.golang.org/grpc v1.54.0 => v1.65.0
+
 ## [3.1.2] - 2024-07-24
 ### Package Vulnerability Updates
 - upgraded google.golang.org/protobuf v1.30.0 => v1.34.2

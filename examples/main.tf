@@ -29,6 +29,11 @@ resource "skysql_service" "default" {
   volume_type       = "gp3"
   volume_iops       = 3000
   volume_throughput = 125
+  tags = {
+    environment = "production"
+    team        = "backend"
+    # Note: tags.name is automatically set to match the service name
+  }
   allow_list = [
     {
       "ip" : "127.0.0.1/32",

@@ -24,5 +24,6 @@ type CreateServiceRequest struct {
 	AllowList          []AllowListItem `json:"allow_list,omitempty"`
 	MaxscaleNodes      uint            `json:"maxscale_nodes,omitempty"`
 	MaxscaleSize       *string         `json:"maxscale_size,omitempty"`
-	AvailabilityZone   string          `json:"availability_zone,omitempty"`
+	AvailabilityZone   string            `json:"availability_zone,omitempty"`
+	Tags               map[string]string `json:"tags,omitempty"`
 }

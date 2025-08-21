@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.1.4] - 2025-07-17
+### Features
+- service `tags` support added.
+
 ## [3.1.3] - 2024-07-25
 ### Package Updates
 - upgraded go 1.19 => 1.21

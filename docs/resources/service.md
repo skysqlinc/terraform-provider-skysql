@@ -29,6 +29,10 @@ resource "skysql_service" "default" {
   volume_type       = "gp3"
   volume_iops       = 3000
   volume_throughput = 125
+  tags = {
+    name        = "myservice"  # API will overwrite this with service name
+    environment = "production" # Optional additional tags
+  }
   # The service create is an asynchronous operation.
   # if you want to wait for the service to be created set wait_for_creation to true
   wait_for_creation = true
@@ -65,6 +69,7 @@ resource "skysql_service" "default" {
 - `size` (String) The size of the service. Valid values are: sky-2x4, sky-2x8 etc
 - `ssl_enabled` (Boolean) Whether to enable SSL. Valid values are: true or false
 - `storage` (Number) The storage size in GB. Valid values are: 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000
+- `tags` (Map of String) Tags associated with the service. Note: The API will automatically overwrite 'tags.name' with the service name.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `version` (String) The software version
 - `volume_iops` (Number) The volume IOPS. This is only applicable for AWS

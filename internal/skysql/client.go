@@ -400,3 +400,20 @@ func (c *Client) GetAvailabilityZones(ctx context.Context, region string, option
 	}
 	return *resp.Result().(*[]provisioning.AvailabilityZone), err
 }
+
+func (c *Client) UpdateServiceTags(ctx context.Context, serviceID string, tags map[string]string) error {
+	resp, err := c.HTTPClient.R().
+		SetHeader("Accept", "application/json").
+		SetContext(ctx).
+		SetBody(&provisioning.UpdateServiceTagsRequest{Tags: tags}).
+		SetError(&ErrorResponse{}).
+		Patch("/provisioning/v1/services/" + serviceID + "/tags")
+	if err != nil {
+		return err
+	}
+	if resp.IsError() {
+		return handleError(resp)
+	}
+
+	return err
+}

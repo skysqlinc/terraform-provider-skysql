@@ -1340,6 +1340,23 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 		}
 	}
 
+	// Block start/stop operations for serverless-standalone services
+	if plan.Topology.ValueString() == "serverless-standalone" {
+		if state == nil && !plan.IsActive.IsUnknown() {
+			// Prevent setting is_active during creation
+			resp.Diagnostics.AddAttributeError(path.Root("is_active"),
+				"Attempt to set read-only attribute",
+				"Start/stop operations are not supported for serverless services")
+		}
+
+		if state != nil && !plan.IsActive.Equal(state.IsActive) {
+			// Prevent changing is_active during update
+			resp.Diagnostics.AddAttributeError(path.Root("is_active"),
+				"Attempt to modify read-only attribute",
+				"Start/stop operations are not supported for serverless services")
+		}
+	}
+
 	if state != nil && plan.Architecture.ValueString() != state.Architecture.ValueString() {
 		resp.Diagnostics.AddError("Cannot change service architecture",
 			"To prevent accidental deletion of data, changing architecture isn't allowed. "+

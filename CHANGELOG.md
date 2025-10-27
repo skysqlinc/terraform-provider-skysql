@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.1.5] - 2025-10-23
+### Fixed
+- prevent start/stop operations on serverless-standalone services.
+
 ## [3.1.4] - 2025-07-17
 ### Features
 - service `tags` support added.

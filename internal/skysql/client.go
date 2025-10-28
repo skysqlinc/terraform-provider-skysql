@@ -22,6 +22,19 @@ type Client struct {
 	HTTPClient *resty.Client
 }
 
+// RequestOption is a function that modifies a resty request
+type RequestOption func(*resty.Request)
+
+// WithOrgID returns a RequestOption that sets the X-MDB-Org header
+// This allows requests to operate in the context of a specific organization
+func WithOrgID(orgID string) RequestOption {
+	return func(r *resty.Request) {
+		if orgID != "" {
+			r.SetHeader("X-MDB-Org", orgID)
+		}
+	}
+}
+
 func New(baseURL string, apiKey string) *Client {
 	transport := logging.NewLoggingHTTPTransport(http.DefaultTransport)
 
@@ -94,13 +107,19 @@ func (c *Client) GetVersions(ctx context.Context, options ...func(url.Values)) (
 	return *resp.Result().(*[]provisioning.Version), err
 }
 
-func (c *Client) GetServiceByID(ctx context.Context, serviceID string) (*provisioning.Service, error) {
-	resp, err := c.HTTPClient.R().
+func (c *Client) GetServiceByID(ctx context.Context, serviceID string, opts ...RequestOption) (*provisioning.Service, error) {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetResult(provisioning.Service{}).
 		SetError(&ErrorResponse{}).
-		SetContext(ctx).
-		Get("/provisioning/v1/services/" + serviceID)
+		SetContext(ctx)
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Get("/provisioning/v1/services/" + serviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -110,14 +129,20 @@ func (c *Client) GetServiceByID(ctx context.Context, serviceID string) (*provisi
 	return resp.Result().(*provisioning.Service), err
 }
 
-func (c *Client) CreateService(ctx context.Context, req *provisioning.CreateServiceRequest) (*provisioning.Service, error) {
-	resp, err := c.HTTPClient.R().
+func (c *Client) CreateService(ctx context.Context, req *provisioning.CreateServiceRequest, opts ...RequestOption) (*provisioning.Service, error) {
+	r := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetResult(provisioning.Service{}).
 		SetError(&ErrorResponse{}).
 		SetContext(ctx).
-		SetBody(req).
-		Post("/provisioning/v1/services")
+		SetBody(req)
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	resp, err := r.Post("/provisioning/v1/services")
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +154,18 @@ func (c *Client) CreateService(ctx context.Context, req *provisioning.CreateServ
 	return resp.Result().(*provisioning.Service), err
 }
 
-func (c *Client) DeleteServiceByID(ctx context.Context, serviceID string) error {
-	resp, err := c.HTTPClient.R().
+func (c *Client) DeleteServiceByID(ctx context.Context, serviceID string, opts ...RequestOption) error {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetError(&ErrorResponse{}).
-		SetContext(ctx).
-		Delete("/provisioning/v1/services/" + serviceID)
+		SetContext(ctx)
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Delete("/provisioning/v1/services/" + serviceID)
 	if err != nil {
 		return err
 	}
@@ -146,13 +177,19 @@ func (c *Client) DeleteServiceByID(ctx context.Context, serviceID string) error 
 	return nil
 }
 
-func (c *Client) GetServiceCredentialsByID(ctx context.Context, serviceID string) (*provisioning.Credentials, error) {
-	resp, err := c.HTTPClient.R().
+func (c *Client) GetServiceCredentialsByID(ctx context.Context, serviceID string, opts ...RequestOption) (*provisioning.Credentials, error) {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetResult(provisioning.Credentials{}).
 		SetError(&ErrorResponse{}).
-		SetContext(ctx).
-		Get("/provisioning/v1/services/" + serviceID + "/security/credentials")
+		SetContext(ctx)
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Get("/provisioning/v1/services/" + serviceID + "/security/credentials")
 	if err != nil {
 		return nil, err
 	}
@@ -162,14 +199,20 @@ func (c *Client) GetServiceCredentialsByID(ctx context.Context, serviceID string
 	return resp.Result().(*provisioning.Credentials), err
 }
 
-func (c *Client) UpdateServiceAllowListByID(ctx context.Context, serviceID string, allowlist []provisioning.AllowListItem) ([]provisioning.AllowListItem, error) {
-	resp, err := c.HTTPClient.R().
+func (c *Client) UpdateServiceAllowListByID(ctx context.Context, serviceID string, allowlist []provisioning.AllowListItem, opts ...RequestOption) ([]provisioning.AllowListItem, error) {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetResult(provisioning.ReadAllowListResponse{}).
 		SetError(&ErrorResponse{}).
 		SetContext(ctx).
-		SetBody(allowlist).
-		Put("/provisioning/v1/services/" + serviceID + "/security/allowlist")
+		SetBody(allowlist)
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Put("/provisioning/v1/services/" + serviceID + "/security/allowlist")
 	if err != nil {
 		return nil, err
 	}
@@ -181,13 +224,19 @@ func (c *Client) UpdateServiceAllowListByID(ctx context.Context, serviceID strin
 	return response[0].AllowList, err
 }
 
-func (c *Client) ReadServiceAllowListByID(ctx context.Context, serviceID string) (provisioning.ReadAllowListResponse, error) {
-	resp, err := c.HTTPClient.R().
+func (c *Client) ReadServiceAllowListByID(ctx context.Context, serviceID string, opts ...RequestOption) (provisioning.ReadAllowListResponse, error) {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
 		SetResult(provisioning.ReadAllowListResponse{}).
-		SetError(&ErrorResponse{}).
-		Get("/provisioning/v1/services/" + serviceID + "/security/allowlist")
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Get("/provisioning/v1/services/" + serviceID + "/security/allowlist")
 	if err != nil {
 		return nil, err
 	}
@@ -218,13 +267,19 @@ func handleError(resp *resty.Response) error {
 	return errors.New(resp.Status())
 }
 
-func (c *Client) SetServicePowerState(ctx context.Context, serviceID string, isActive bool) error {
-	resp, err := c.HTTPClient.R().
+func (c *Client) SetServicePowerState(ctx context.Context, serviceID string, isActive bool, opts ...RequestOption) error {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
 		SetBody(&provisioning.PowerStateRequest{IsActive: isActive}).
-		SetError(&ErrorResponse{}).
-		Post("/provisioning/v1/services/" + serviceID + "/power")
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Post("/provisioning/v1/services/" + serviceID + "/power")
 	if err != nil {
 		return err
 	}
@@ -241,8 +296,9 @@ func (c *Client) ModifyServiceEndpoints(
 	mechanism string,
 	allowedAccounts []string,
 	visibility string,
+	opts ...RequestOption,
 ) (*provisioning.ServiceEndpoint, error) {
-	resp, err := c.HTTPClient.R().
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
 		SetBody(&provisioning.PatchServiceEndpointsRequest{
@@ -251,8 +307,14 @@ func (c *Client) ModifyServiceEndpoints(
 				Visibility:      visibility},
 		}).
 		SetResult(provisioning.PatchServiceEndpointsResponse{}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/endpoints")
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Patch("/provisioning/v1/services/" + serviceID + "/endpoints")
 	if err != nil {
 		return nil, err
 	}
@@ -266,13 +328,19 @@ func (c *Client) ModifyServiceEndpoints(
 	return &response[0], err
 }
 
-func (c *Client) ModifyServiceSize(ctx context.Context, serviceID string, size string) error {
-	resp, err := c.HTTPClient.R().
+func (c *Client) ModifyServiceSize(ctx context.Context, serviceID string, size string, opts ...RequestOption) error {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
 		SetBody(&provisioning.UpdateServiceSizeRequest{Size: size}).
-		SetError(&ErrorResponse{}).
-		Post("/provisioning/v1/services/" + serviceID + "/size")
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Post("/provisioning/v1/services/" + serviceID + "/size")
 	if err != nil {
 		return err
 	}
@@ -283,13 +351,19 @@ func (c *Client) ModifyServiceSize(ctx context.Context, serviceID string, size s
 	return err
 }
 
-func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, nodes int64) error {
-	resp, err := c.HTTPClient.R().
+func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, nodes int64, opts ...RequestOption) error {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
 		SetBody(&provisioning.UpdateServiceNodesNumberRequest{Nodes: nodes}).
-		SetError(&ErrorResponse{}).
-		Post("/provisioning/v1/services/" + serviceID + "/nodes")
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Post("/provisioning/v1/services/" + serviceID + "/nodes")
 	if err != nil {
 		return err
 	}
@@ -300,13 +374,42 @@ func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, 
 	return err
 }
 
-func (c *Client) ModifyServiceStorage(ctx context.Context, serviceID string, size int64, iops int64, throughput int64) error {
-	resp, err := c.HTTPClient.R().
+func (c *Client) ModifyServiceStorage(ctx context.Context, serviceID string, size int64, iops int64, throughput int64, opts ...RequestOption) error {
+	req := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").
 		SetContext(ctx).
 		SetBody(&provisioning.UpdateStorageRequest{Size: size, IOPS: iops, Throughput: throughput}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/storage")
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Patch("/provisioning/v1/services/" + serviceID + "/storage")
+	if err != nil {
+		return err
+	}
+	if resp.IsError() {
+		return handleError(resp)
+	}
+
+	return err
+}
+
+func (c *Client) UpdateServiceTags(ctx context.Context, serviceID string, tags map[string]string, opts ...RequestOption) error {
+	req := c.HTTPClient.R().
+		SetHeader("Accept", "application/json").
+		SetContext(ctx).
+		SetBody(&provisioning.UpdateServiceTagsRequest{Tags: tags}).
+		SetError(&ErrorResponse{})
+
+	// Apply request options
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp, err := req.Patch("/provisioning/v1/services/" + serviceID + "/tags")
 	if err != nil {
 		return err
 	}
@@ -399,21 +502,4 @@ func (c *Client) GetAvailabilityZones(ctx context.Context, region string, option
 		return nil, handleError(resp)
 	}
 	return *resp.Result().(*[]provisioning.AvailabilityZone), err
-}
-
-func (c *Client) UpdateServiceTags(ctx context.Context, serviceID string, tags map[string]string) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.UpdateServiceTagsRequest{Tags: tags}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/tags")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
-
-	return err
 }

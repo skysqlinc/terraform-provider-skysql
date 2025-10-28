@@ -63,6 +63,7 @@ resource "skysql_service" "default" {
 - `maxscale_size` (String) The size of the MaxScale nodes. Valid values are: sky-2x4, sky-2x8 etc
 - `nodes` (Number) The number of nodes
 - `nosql_enabled` (Boolean) Whether to enable NoSQL. Valid values are: true or false
+- `org_id` (String) The organization ID to use for this service. When specified, all API requests will include the X-MDB-Org header to operate in this organization's context. This allows managing services across multiple organizations.
 - `primary_host` (String) The primary host of the service
 - `project_id` (String) The ID of the project to create the service in
 - `replication_enabled` (Boolean) Whether to enable global replication. Valid values are: true or false. Works for xpand-direct topology only

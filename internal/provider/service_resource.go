@@ -201,7 +201,7 @@ var serviceResourceSchemaV0 = schema.Schema{
 		},
 		"topology": schema.StringAttribute{
 			Required:    true,
-			Description: "The topology of the service. Valid values are: es-single, es-replica, xpand, csdw and sa",
+			Description: "The topology of the service. Valid values are: es-single, es-replica, xpand, csdw, sa, masterslave, and galera",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.RequiresReplace(),
 			},
@@ -1072,6 +1072,63 @@ func (r *ServiceResource) updateServicePowerState(ctx context.Context, plan *Ser
 	}
 }
 
+func (r *ServiceResource) updateServiceTags(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
+	if !plan.Tags.IsUnknown() {
+		var planTags map[string]string
+		diags := plan.Tags.ElementsAs(ctx, &planTags, false)
+		if diags.HasError() {
+			// Log warning but don't fail the update to protect against state incompatibility
+			tflog.Warn(ctx, "Failed to parse plan tags, skipping tag update", map[string]interface{}{
+				"id":    state.ID.ValueString(),
+				"error": diags.Errors(),
+			})
+			return
+		}
+
+		var stateTags map[string]string
+		diags = state.Tags.ElementsAs(ctx, &stateTags, false)
+		if diags.HasError() {
+			// For backward compatibility, if state tags can't be parsed (e.g., from older provider version),
+			// treat as empty map and continue with the update
+			tflog.Warn(ctx, "Failed to parse state tags, treating as empty", map[string]interface{}{
+				"id":    state.ID.ValueString(),
+				"error": diags.Errors(),
+			})
+			stateTags = make(map[string]string)
+		}
+
+		if !reflect.DeepEqual(planTags, stateTags) {
+			tflog.Info(ctx, "Updating service tags", map[string]interface{}{
+				"id": state.ID.ValueString(),
+			})
+
+			err := r.client.UpdateServiceTags(ctx, state.ID.ValueString(), planTags, skysql.WithOrgID(state.OrgID.ValueString()))
+			if err != nil {
+				if errors.Is(err, skysql.ErrorServiceNotFound) {
+					tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
+						"id": state.ID.ValueString(),
+					})
+					resp.State.RemoveResource(ctx)
+					return
+				}
+				// Log warning but don't fail the update to protect against tag API errors
+				tflog.Warn(ctx, "Failed to update service tags, continuing with other updates", map[string]interface{}{
+					"id":    state.ID.ValueString(),
+					"error": err.Error(),
+				})
+				return
+			}
+
+			state.Tags = plan.Tags
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			r.waitForUpdate(ctx, state, resp)
+		}
+	}
+}
+
 var serviceUpdateWaitStates = []string{"ready", "failed", "stopped"}
 
 func (r *ServiceResource) waitForUpdate(ctx context.Context, state *ServiceResourceModel, resp *resource.UpdateResponse) {
@@ -1428,63 +1485,6 @@ func (r *ServiceResource) UpgradeState(ctx context.Context) map[int64]resource.S
 				}
 			},
 		},
-	}
-}
-
-func (r *ServiceResource) updateServiceTags(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
-	if !plan.Tags.IsUnknown() {
-		var planTags map[string]string
-		diags := plan.Tags.ElementsAs(ctx, &planTags, false)
-		if diags.HasError() {
-			// Log warning but don't fail the update to protect against state incompatibility
-			tflog.Warn(ctx, "Failed to parse plan tags, skipping tag update", map[string]interface{}{
-				"id":    state.ID.ValueString(),
-				"error": diags.Errors(),
-			})
-			return
-		}
-
-		var stateTags map[string]string
-		diags = state.Tags.ElementsAs(ctx, &stateTags, false)
-		if diags.HasError() {
-			// For backward compatibility, if state tags can't be parsed (e.g., from older provider version),
-			// treat as empty map and continue with the update
-			tflog.Warn(ctx, "Failed to parse state tags, treating as empty", map[string]interface{}{
-				"id":    state.ID.ValueString(),
-				"error": diags.Errors(),
-			})
-			stateTags = make(map[string]string)
-		}
-
-		if !reflect.DeepEqual(planTags, stateTags) {
-			tflog.Info(ctx, "Updating service tags", map[string]interface{}{
-				"id": state.ID.ValueString(),
-			})
-
-			err := r.client.UpdateServiceTags(ctx, state.ID.ValueString(), planTags, skysql.WithOrgID(state.OrgID.ValueString()))
-			if err != nil {
-				if errors.Is(err, skysql.ErrorServiceNotFound) {
-					tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
-						"id": state.ID.ValueString(),
-					})
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				// Log warning but don't fail the update to protect against tag API errors
-				tflog.Warn(ctx, "Failed to update service tags, continuing with other updates", map[string]interface{}{
-					"id":    state.ID.ValueString(),
-					"error": err.Error(),
-				})
-				return
-			}
-
-			state.Tags = plan.Tags
-			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-			r.waitForUpdate(ctx, state, resp)
-		}
 	}
 }
 

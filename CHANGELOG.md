@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.3.0] - 2026-01-16
+### Added
+- Galera Cluster topology support for high-availability multi-master replication
+- Example configuration and documentation for Galera deployments
+
 ## [3.2.0] - 2025-10-23
 ### Added
 - Multi-organization support.

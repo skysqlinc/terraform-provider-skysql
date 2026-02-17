@@ -46,7 +46,7 @@ data "skysql_service" "default" {
 - `status` (String) The service status
 - `storage_volume` (Attributes) The storage volume for the service. (see [below for nested schema](#nestedatt--storage_volume))
 - `tier` (String) The tier of the service. Possible values are: foundation or power
-- `topology` (String) The topology of the service. Possible values are: es-single, es-replica, xpand, csdw and sa
+- `topology` (String) The topology of the service. Possible values are: es-single, es-replica, xpand, csdw, sa, masterslave, and galera
 - `updated_by` (String) The user who last updated the service.
 - `updated_on` (Number) The timestamp when the service was last updated.
 - `version` (String) The database service version.

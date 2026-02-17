@@ -3,13 +3,6 @@ package provider
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
-	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
-	"github.com/stretchr/testify/require"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +11,14 @@ import (
 	"regexp"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql"
+	"github.com/skysqlinc/terraform-provider-skysql/internal/skysql/provisioning"
+	"github.com/stretchr/testify/require"
 )
 
 func mockSkySQLAPI(t *testing.T) (string, func(http.HandlerFunc), func()) {
@@ -776,6 +777,139 @@ resource "skysql_service" default {
 				})
 			},
 			expectError: regexp.MustCompile(`volume_throughput is required for gp3 volume_type for AWS`),
+		},
+		{
+			name: "create galera service",
+			testResource: fmt.Sprintf(`
+				resource "skysql_service" default {
+				 service_type   = "transactional"
+				 topology       = "galera"
+				 cloud_provider = "gcp"
+				 region         = "us-central1"
+				 name           = "%s"
+				 architecture   = "amd64"
+				 nodes          = 3
+				 maxscale_nodes = 1
+				 size           = "sky-4x16"
+				 storage        = 100
+				 ssl_enabled    = true
+				 version        = "10.6.11-6-1"
+				 wait_for_creation = true
+				 wait_for_deletion = true
+				 deletion_protection = false
+				}
+					            `, GenerateServiceName(t)),
+			before: func(r *require.Assertions) {
+				configureOnce.Reset()
+				var service *provisioning.Service
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodGet, req.Method)
+					r.Equal("/provisioning/v1/versions", req.URL.Path)
+					r.Equal("page_size=1", req.URL.RawQuery)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					json.NewEncoder(w).Encode([]provisioning.Version{})
+				})
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodPost, req.Method)
+					r.Equal("/provisioning/v1/services", req.URL.Path)
+					w.Header().Set("Content-Type", "application/json")
+					payload := provisioning.CreateServiceRequest{}
+					err := json.NewDecoder(req.Body).Decode(&payload)
+					r.NoError(err)
+					r.Equal("galera", payload.Topology)
+					r.Equal(uint(3), payload.Nodes)
+					r.Equal(uint(1), payload.MaxscaleNodes)
+					r.Equal("sky-4x16", payload.Size)
+					service = &provisioning.Service{
+						ID:            serviceID,
+						Name:          payload.Name,
+						Region:        payload.Region,
+						Provider:      payload.Provider,
+						Tier:          "powerplus",
+						Topology:      payload.Topology,
+						Version:       payload.Version,
+						Architecture:  payload.Architecture,
+						Size:          payload.Size,
+						Nodes:         int(payload.Nodes),
+						MaxscaleNodes: payload.MaxscaleNodes,
+						SSLEnabled:    payload.SSLEnabled,
+						NosqlEnabled:  payload.NoSQLEnabled,
+						FQDN:          "",
+						Status:        "pending_create",
+						CreatedOn:     int(time.Now().Unix()),
+						UpdatedOn:     int(time.Now().Unix()),
+						CreatedBy:     uuid.New().String(),
+						UpdatedBy:     uuid.New().String(),
+						Endpoints: []provisioning.Endpoint{
+							{
+								Name: "primary",
+								Ports: []provisioning.Port{
+									{
+										Name:    "readwrite",
+										Port:    3306,
+										Purpose: "readwrite",
+									},
+									{
+										Name:    "readonly",
+										Port:    3307,
+										Purpose: "readonly",
+									},
+								},
+							},
+						},
+						StorageVolume: struct {
+							Size       int    `json:"size"`
+							VolumeType string `json:"volume_type"`
+							IOPS       int    `json:"iops"`
+							Throughput int    `json:"throughput"`
+						}{
+							Size:       int(payload.Storage),
+							VolumeType: "pd-ssd",
+							IOPS:       int(payload.VolumeIOPS),
+							Throughput: int(payload.VolumeThroughput),
+						},
+						OutboundIps:        nil,
+						IsActive:           true,
+						ServiceType:        payload.ServiceType,
+						ReplicationEnabled: false,
+						PrimaryHost:        "",
+					}
+					r.NoError(json.NewEncoder(w).Encode(service))
+					w.WriteHeader(http.StatusCreated)
+				})
+				for i := 0; i <= 2; i++ {
+					expectRequest(func(w http.ResponseWriter, req *http.Request) {
+						r.Equal(http.MethodGet, req.Method)
+						r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
+						w.Header().Set("Content-Type", "application/json")
+						service.Status = "ready"
+						r.NoError(json.NewEncoder(w).Encode(service))
+						w.WriteHeader(http.StatusOK)
+					})
+				}
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodDelete, req.Method)
+					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
+					w.WriteHeader(http.StatusAccepted)
+					w.Header().Set("Content-Type", "application/json")
+				})
+				expectRequest(func(w http.ResponseWriter, req *http.Request) {
+					r.Equal(http.MethodGet, req.Method)
+					r.Equal("/provisioning/v1/services/"+serviceID, req.URL.Path)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusNotFound)
+					json.NewEncoder(w).Encode(&skysql.ErrorResponse{
+						Code: http.StatusNotFound,
+					})
+				})
+			},
+			checks: []resource.TestCheckFunc{
+				resource.TestCheckResourceAttr("skysql_service.default", "id", serviceID),
+				resource.TestCheckResourceAttr("skysql_service.default", "topology", "galera"),
+				resource.TestCheckResourceAttr("skysql_service.default", "nodes", "3"),
+				resource.TestCheckResourceAttr("skysql_service.default", "maxscale_nodes", "1"),
+			},
 		},
 	}
 

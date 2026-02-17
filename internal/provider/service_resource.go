@@ -201,7 +201,7 @@ var serviceResourceSchemaV0 = schema.Schema{
 		},
 		"topology": schema.StringAttribute{
 			Required:    true,
-			Description: "The topology of the service. Valid values are: es-single, es-replica, xpand, csdw, sa, masterslave, and galera",
+			Description: "The topology of the service. Valid values are: standalone, masterslave, es-single, es-replica, galera, and serverless-standalone",
 			PlanModifiers: []planmodifier.String{
 				stringplanmodifier.RequiresReplace(),
 			},

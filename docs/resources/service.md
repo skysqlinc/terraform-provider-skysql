@@ -48,7 +48,7 @@ resource "skysql_service" "default" {
 - `name` (String) The name of the service
 - `region` (String) The region to create the service in. Value should be valid for a specific cloud provider
 - `service_type` (String) The type of service to create. Valid values are: analytical or transactional
-- `topology` (String) The topology of the service. Valid values are: es-single, es-replica, xpand, csdw, sa, masterslave, and galera
+- `topology` (String) The topology of the service. Valid values are: standalone, masterslave, es-single, es-replica, galera, and serverless-standalone
 
 ### Optional
 

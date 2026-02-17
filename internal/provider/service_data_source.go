@@ -101,7 +101,7 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 			},
 			"topology": schema.StringAttribute{
 				Computed:    true,
-				Description: "The topology of the service. Possible values are: es-single, es-replica, xpand, csdw, sa, masterslave, and galera",
+				Description: "The topology of the service. Possible values are: standalone, masterslave, es-single, es-replica, galera, and serverless-standalone",
 			},
 			"version": schema.StringAttribute{
 				Computed:    true,

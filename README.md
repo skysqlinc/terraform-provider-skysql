@@ -1,7 +1,5 @@
 # SkySQL Terraform Provider
 
-> The SkySQL Terraform Provider is a Technical Preview. Software in Tech Preview should not be used for production workloads.
-
 This is a Terraform provider for managing resources in [SkySQL](https://www.skysql.com).
 
 See the examples in `/docs` in this repository for usage examples.

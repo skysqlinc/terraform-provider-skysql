@@ -100,6 +100,7 @@ type ServiceResourceModel struct {
 	AvailabilityZone   types.String   `tfsdk:"availability_zone"`
 	Tags               types.Map      `tfsdk:"tags"`
 	OrgID              types.String   `tfsdk:"org_id"`
+	ConfigID           types.String   `tfsdk:"config_id"`
 }
 
 // ServiceResourceNamedPortModel is an endpoint port
@@ -418,6 +419,20 @@ var serviceResourceSchemaV0 = schema.Schema{
 				stringplanmodifier.RequiresReplace(),
 			},
 		},
+		"config_id": schema.StringAttribute{
+			Optional: true,
+			Description: "The ID of a custom configuration object to apply to this service. The configuration must match the service topology and version. " +
+				"Requires wait_for_creation = true when set during service creation. " +
+				"Changing this value will apply the new configuration to the service. " +
+				"Removing this attribute reverts the service to its default configuration.",
+			MarkdownDescription: "The ID of a custom configuration object to apply to this service. " +
+				"The configuration must match the service topology and version. " +
+				"Requires `wait_for_creation = true` when set during service creation.\n\n" +
+				"**Update behavior:**\n" +
+				"- **Set or change** `config_id` → applies the new configuration to the service via `POST /services/{id}/config`.\n" +
+				"- **Remove** `config_id` → reverts the service to its default configuration via `DELETE /services/{id}/config`.\n" +
+				"- If the service already has the specified config applied (e.g. after import), the operation is a no-op.",
+		},
 	},
 	Blocks: map[string]schema.Block{
 		"timeouts": timeouts.Block(context.Background(), timeouts.Opts{
@@ -459,6 +474,15 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Validate: config_id requires wait_for_creation to be true.
+	if !state.ConfigID.IsNull() && state.ConfigID.ValueString() != "" && !state.WaitForCreation.ValueBool() {
+		resp.Diagnostics.AddError(
+			"Invalid configuration",
+			"config_id requires wait_for_creation = true. The service must be ready before a configuration can be applied.",
+		)
 		return
 	}
 
@@ -633,6 +657,40 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		r.readServiceState(ctx, state)
 		r.updateAllowedAccountsState(plan, state)
 		r.updateAllowListState(plan, state)
+
+		// Apply config after service is ready.
+		if !plan.ConfigID.IsNull() && !plan.ConfigID.IsUnknown() && plan.ConfigID.ValueString() != "" {
+			configID := plan.ConfigID.ValueString()
+			tflog.Info(ctx, "Applying configuration to service", map[string]interface{}{
+				"service_id": service.ID,
+				"config_id":  configID,
+			})
+			err = r.client.ApplyConfigToService(ctx, service.ID, configID, skysql.WithOrgID(state.OrgID.ValueString()))
+			if err != nil {
+				resp.Diagnostics.AddError("Error applying configuration to service",
+					fmt.Sprintf("Unable to apply config %q to service %q: %s", configID, service.ID, err.Error()))
+				return
+			}
+			state.ConfigID = types.StringValue(configID)
+
+			// Wait for config apply to complete.
+			err = sdkresource.RetryContext(ctx, createTimeout, func() *sdkresource.RetryError {
+				svc, err := r.client.GetServiceByID(ctx, service.ID, skysql.WithOrgID(state.OrgID.ValueString()))
+				if err != nil {
+					return sdkresource.NonRetryableError(fmt.Errorf("error retrieving service details: %v", err))
+				}
+				if Contains[string](serviceUpdateWaitStates, svc.Status) {
+					return nil
+				}
+				return sdkresource.RetryableError(fmt.Errorf("expected instance to be ready but was in state %s", svc.Status))
+			})
+			if err != nil {
+				resp.Diagnostics.AddError("Error applying configuration to service",
+					fmt.Sprintf("Service did not return to ready state after config apply: %s", err))
+				return
+			}
+		}
+
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	}
 }
@@ -815,6 +873,11 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	r.updateServiceTags(ctx, plan, state, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	r.updateServiceConfig(ctx, plan, state, resp)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -1127,6 +1190,74 @@ func (r *ServiceResource) updateServiceTags(ctx context.Context, plan *ServiceRe
 			r.waitForUpdate(ctx, state, resp)
 		}
 	}
+}
+
+func (r *ServiceResource) updateServiceConfig(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
+	planConfigID := plan.ConfigID.ValueString()
+	stateConfigID := state.ConfigID.ValueString()
+
+	if planConfigID == stateConfigID {
+		return
+	}
+
+	serviceID := state.ID.ValueString()
+
+	// Check the actual service state to avoid applying the same config
+	// (e.g. after import, TF state may be empty but the service already has the config).
+	service, err := r.client.GetServiceByID(ctx, serviceID, skysql.WithOrgID(state.OrgID.ValueString()))
+	if err != nil {
+		resp.Diagnostics.AddError("Error reading service", err.Error())
+		return
+	}
+
+	if plan.ConfigID.IsNull() || planConfigID == "" {
+		if service.ConfigID == "" {
+			// Already using default config — nothing to do.
+			state.ConfigID = types.StringNull()
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			return
+		}
+		// Config removed — revert to default.
+		tflog.Info(ctx, "Removing configuration from service", map[string]interface{}{
+			"service_id": serviceID,
+		})
+		err := r.client.RemoveConfigFromService(ctx, serviceID, skysql.WithOrgID(state.OrgID.ValueString()))
+		if err != nil {
+			resp.Diagnostics.AddError("Error removing configuration from service",
+				fmt.Sprintf("Unable to remove config from service %q: %s", serviceID, err.Error()))
+			return
+		}
+		state.ConfigID = types.StringNull()
+	} else {
+		if service.ConfigID == planConfigID {
+			// Config already applied (e.g. after import) — update state only.
+			tflog.Info(ctx, "Service already has the desired configuration", map[string]interface{}{
+				"service_id": serviceID,
+				"config_id":  planConfigID,
+			})
+			state.ConfigID = types.StringValue(planConfigID)
+			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+			return
+		}
+		// Config changed or added.
+		tflog.Info(ctx, "Applying configuration to service", map[string]interface{}{
+			"service_id": serviceID,
+			"config_id":  planConfigID,
+		})
+		err := r.client.ApplyConfigToService(ctx, serviceID, planConfigID, skysql.WithOrgID(state.OrgID.ValueString()))
+		if err != nil {
+			resp.Diagnostics.AddError("Error applying configuration to service",
+				fmt.Sprintf("Unable to apply config %q to service %q: %s", planConfigID, serviceID, err.Error()))
+			return
+		}
+		state.ConfigID = types.StringValue(planConfigID)
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.waitForUpdate(ctx, state, resp)
 }
 
 var serviceUpdateWaitStates = []string{"ready", "failed", "stopped"}

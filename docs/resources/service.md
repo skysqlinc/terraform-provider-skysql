@@ -36,6 +36,8 @@ resource "skysql_service" "default" {
   # The service create is an asynchronous operation.
   # if you want to wait for the service to be created set wait_for_creation to true
   wait_for_creation = true
+  # Optional: apply a custom configuration object (requires wait_for_creation = true)
+  # config_id = skysql_config.tuned.id
 }
 ```
 
@@ -55,6 +57,12 @@ resource "skysql_service" "default" {
 - `allow_list` (Attributes List) The list of IP addresses with comments to allow access to the service (see [below for nested schema](#nestedatt--allow_list))
 - `architecture` (String) The architecture of the service. Valid values are: amd64 or arm64
 - `availability_zone` (String) The availability zone of the service
+- `config_id` (String) The ID of a custom configuration object to apply to this service. The configuration must match the service topology and version. Requires `wait_for_creation = true` when set during service creation.
+
+**Update behavior:**
+- **Set or change** `config_id` → applies the new configuration to the service via `POST /services/{id}/config`.
+- **Remove** `config_id` → reverts the service to its default configuration via `DELETE /services/{id}/config`.
+- If the service already has the specified config applied (e.g. after import), the operation is a no-op.
 - `deletion_protection` (Boolean) Whether to enable deletion protection. Valid values are: true or false. Default is true
 - `endpoint_allowed_accounts` (List of String) The list of cloud accounts (aws, azure, or gcp projects) that are allowed to access the service. Works only with `privateconnect` endpoint mechanism
 - `endpoint_mechanism` (String) The endpoint mechanism to use. Valid values are: privateconnect or nlb

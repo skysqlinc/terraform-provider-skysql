@@ -22,4 +22,6 @@ resource "skysql_service" "default" {
   # The service create is an asynchronous operation.
   # if you want to wait for the service to be created set wait_for_creation to true
   wait_for_creation = true
+  # Optional: apply a custom configuration object (requires wait_for_creation = true)
+  # config_id = skysql_config.tuned.id
 }

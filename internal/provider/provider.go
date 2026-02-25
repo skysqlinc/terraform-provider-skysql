@@ -138,6 +138,7 @@ func (p *skySQLProvider) Resources(ctx context.Context) []func() resource.Resour
 		NewServiceResource,
 		NewServiceAllowListResource,
 		NewAutonomousResource,
+		NewConfigResource,
 	}
 }
 

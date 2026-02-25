@@ -26,15 +26,16 @@ type Service struct {
 		IOPS       int    `json:"iops"`
 		Throughput int    `json:"throughput"`
 	} `json:"storage_volume"`
-	OutboundIps        []string `json:"outbound_ips"`
-	IsActive           bool     `json:"is_active"`
-	ServiceType        string   `json:"service_type"`
-	ReplicationEnabled bool     `json:"replication_enabled"`
-	PrimaryHost        string   `json:"primary_host"`
-	MaxscaleNodes      uint     `json:"maxscale_nodes,omitempty"`
-	MaxscaleSize       *string  `json:"maxscale_size,omitempty"`
+	OutboundIps        []string          `json:"outbound_ips"`
+	IsActive           bool              `json:"is_active"`
+	ServiceType        string            `json:"service_type"`
+	ReplicationEnabled bool              `json:"replication_enabled"`
+	PrimaryHost        string            `json:"primary_host"`
+	MaxscaleNodes      uint              `json:"maxscale_nodes,omitempty"`
+	MaxscaleSize       *string           `json:"maxscale_size,omitempty"`
 	AvailabilityZone   string            `json:"availability_zone,omitempty"`
 	Tags               map[string]string `json:"tags,omitempty"`
+	ConfigID           string            `json:"config_id,omitempty"`
 }
 
 type Endpoint struct {

@@ -32,6 +32,7 @@ type skySQLProvider struct {
 type SkySQLProviderModel struct {
 	BaseURL types.String `tfsdk:"base_url"`
 	APIKey  types.String `tfsdk:"api_key"`
+	OrgID   types.String `tfsdk:"org_id"`
 }
 
 func (p *skySQLProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -51,6 +52,10 @@ func (p *skySQLProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 			"base_url": schema.StringAttribute{
 				Optional: true,
 			},
+			"org_id": schema.StringAttribute{
+				MarkdownDescription: "SkySQL Organization ID. When set, all API requests will operate in the context of this organization. Can also be set via the `TF_SKYSQL_ORG_ID` environment variable.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -67,6 +72,7 @@ func getEnv(key, fallback string) string {
 func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	apiKey := os.Getenv("TF_SKYSQL_API_KEY")
 	baseURL := getEnv("TF_SKYSQL_API_BASE_URL", "https://api.skysql.com")
+	orgID := os.Getenv("TF_SKYSQL_ORG_ID")
 
 	var data SkySQLProviderModel
 
@@ -84,6 +90,10 @@ func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 	if data.BaseURL.ValueString() != "" {
 		baseURL = data.BaseURL.ValueString()
+	}
+
+	if data.OrgID.ValueString() != "" {
+		orgID = data.OrgID.ValueString()
 	}
 
 	if apiKey == "" {
@@ -106,7 +116,7 @@ func (p *skySQLProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		// Not returning early allows the logic to collect all errors.
 	}
 
-	client := skysql.New(baseURL, apiKey)
+	client := skysql.New(baseURL, apiKey, orgID)
 
 	configureOnce.Do(func() {
 		_, err := client.GetVersions(ctx, skysql.WithPageSize(1))

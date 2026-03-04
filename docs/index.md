@@ -353,7 +353,7 @@ which are applied in the following order:
 configuration and risks secret leakage should this file ever be committed to a
 public version control system.
 
-Credentials can be provided by adding an `api_key` to the provider configuration block.
+Credentials and organization can be provided by adding `api_key` and `org_id` to the provider configuration block.
 
 Usage:
 
@@ -361,12 +361,13 @@ Usage:
 
 provider "skysql" {
   api_key = "my-api-key"
+  org_id  = "my-org-id"   # Optional: target a specific organization
 }
 ```
 
 ### Environment Variables
 
-SkySQL Access token can be provided by using the `TF_SKYSQL_API_KEY` environment variable.
+SkySQL Access token and organization can be provided by using environment variables.
 
 For example:
 
@@ -376,6 +377,7 @@ provider "skysql" {}
 
 ```sh
 $ export TF_SKYSQL_API_KEY="my-api-key"
+$ export TF_SKYSQL_ORG_ID="my-org-id"   # Optional
 
 $ terraform plan
 ```

@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.5.0] - 2026-02-26
+### Changed
+- **Breaking:** `org_id` moved from `skysql_service` resource attribute to provider-level attribute. Use `org_id` in the `provider "skysql"` block or the `TF_SKYSQL_ORG_ID` environment variable instead. All resources and data sources now inherit the organization context from the provider.
+- Removed `RequestOption` / `WithOrgID` internals — org header is set globally on the HTTP client.
+
 ## [3.4.0] - 2026-02-21
 ### Added
 - `skysql_config` resource for creating and managing custom configuration objects with server variable overrides.

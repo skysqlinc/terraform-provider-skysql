@@ -16,8 +16,8 @@ resource "skysql_service" "default" {
   volume_iops       = 3000
   volume_throughput = 125
   tags = {
-    name        = "myservice"  # API will overwrite this with service name
-    environment = "production" # Optional additional tags
+    environment = "production"
+    team        = "platform"
   }
   # The service create is an asynchronous operation.
   # if you want to wait for the service to be created set wait_for_creation to true

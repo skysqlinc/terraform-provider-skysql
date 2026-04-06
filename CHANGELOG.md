@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.5.1] - 2026-04-06
+### Fixed
+- Fixed `tags` attribute causing perpetual diffs and "Provider produced inconsistent result after apply" errors ([#34](https://github.com/skysqlinc/terraform-provider-skysql/issues/34)).
+- Removed `Computed: true` from `tags` schema — tags are now purely user-managed.
+- Removed `tagsNamePlanModifier` that was injecting `tags["name"]` into the plan, violating Terraform's plan contract.
+- `readServiceState()` now filters API-returned tags to only include keys present in the user's configuration, preventing API-injected tags (e.g. `name`) from leaking into state.
+- `updateServiceTags()` now correctly handles null/unknown plan tags when users omit tags from config.
+
 ## [3.5.0] - 2026-02-26
 ### Changed
 - **Breaking:** `org_id` moved from `skysql_service` resource attribute to provider-level attribute. Use `org_id` in the `provider "skysql"` block or the `TF_SKYSQL_ORG_ID` environment variable instead. All resources and data sources now inherit the organization context from the provider.

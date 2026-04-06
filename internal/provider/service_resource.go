@@ -460,12 +460,8 @@ var serviceResourceSchemaV0 = schema.Schema{
 		},
 		"tags": schema.MapAttribute{
 			Optional:    true,
-			Computed:    true,
 			ElementType: types.StringType,
-			Description: "Tags associated with the service. Note: The API will automatically overwrite 'tags.name' with the service name.",
-			PlanModifiers: []planmodifier.Map{
-				&tagsNamePlanModifier{},
-			},
+			Description: "User-defined tags for the service. Use tags.name to set a display name (the API sets this to the service name by default on creation). Only the tag keys you specify here are tracked in Terraform state; any server-injected tags are ignored.",
 		},
 		"config_id": schema.StringAttribute{
 			Optional: true,
@@ -853,11 +849,24 @@ func (r *ServiceResource) readServiceState(ctx context.Context, data *ServiceRes
 	if !(data.MaxscaleNodes.IsUnknown() || data.MaxscaleSize.IsNull()) {
 		data.MaxscaleNodes = types.Int64Value(int64(service.MaxscaleNodes))
 	}
-	if service.Tags != nil {
-		data.Tags, _ = types.MapValueFrom(ctx, types.StringType, service.Tags)
-	} else {
-		data.Tags = types.MapNull(types.StringType)
+	if service.Tags != nil && !data.Tags.IsNull() && !data.Tags.IsUnknown() {
+		// Only keep tags whose keys are managed by the user (present in current state).
+		// This prevents API-injected tags (e.g. "name") from leaking into state.
+		var currentTags map[string]string
+		data.Tags.ElementsAs(ctx, &currentTags, false)
+		filteredTags := make(map[string]string)
+		for k := range currentTags {
+			if v, ok := service.Tags[k]; ok {
+				filteredTags[k] = v
+			}
+		}
+		if len(filteredTags) > 0 {
+			data.Tags, _ = types.MapValueFrom(ctx, types.StringType, filteredTags)
+		} else {
+			data.Tags = types.MapNull(types.StringType)
+		}
 	}
+	// If data.Tags is null (user didn't specify tags), leave it null — don't populate from API.
 	return nil
 }
 
@@ -1183,59 +1192,57 @@ func (r *ServiceResource) updateServicePowerState(ctx context.Context, plan *Ser
 }
 
 func (r *ServiceResource) updateServiceTags(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
-	if !plan.Tags.IsUnknown() {
-		var planTags map[string]string
-		diags := plan.Tags.ElementsAs(ctx, &planTags, false)
+	// If user removed tags from config entirely, stop managing them
+	if plan.Tags.IsNull() || plan.Tags.IsUnknown() {
+		state.Tags = plan.Tags
+		return
+	}
+
+	var planTags map[string]string
+	diags := plan.Tags.ElementsAs(ctx, &planTags, false)
+	if diags.HasError() {
+		tflog.Warn(ctx, "Failed to parse plan tags, skipping tag update", map[string]interface{}{
+			"id":    state.ID.ValueString(),
+			"error": diags.Errors(),
+		})
+		return
+	}
+
+	var stateTags map[string]string
+	if !state.Tags.IsNull() && !state.Tags.IsUnknown() {
+		diags = state.Tags.ElementsAs(ctx, &stateTags, false)
 		if diags.HasError() {
-			// Log warning but don't fail the update to protect against state incompatibility
-			tflog.Warn(ctx, "Failed to parse plan tags, skipping tag update", map[string]interface{}{
+			stateTags = make(map[string]string)
+		}
+	}
+
+	if !reflect.DeepEqual(planTags, stateTags) {
+		tflog.Info(ctx, "Updating service tags", map[string]interface{}{
+			"id": state.ID.ValueString(),
+		})
+
+		err := r.client.UpdateServiceTags(ctx, state.ID.ValueString(), planTags)
+		if err != nil {
+			if errors.Is(err, skysql.ErrorServiceNotFound) {
+				tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
+					"id": state.ID.ValueString(),
+				})
+				resp.State.RemoveResource(ctx)
+				return
+			}
+			tflog.Warn(ctx, "Failed to update service tags, continuing with other updates", map[string]interface{}{
 				"id":    state.ID.ValueString(),
-				"error": diags.Errors(),
+				"error": err.Error(),
 			})
 			return
 		}
 
-		var stateTags map[string]string
-		diags = state.Tags.ElementsAs(ctx, &stateTags, false)
-		if diags.HasError() {
-			// For backward compatibility, if state tags can't be parsed (e.g., from older provider version),
-			// treat as empty map and continue with the update
-			tflog.Warn(ctx, "Failed to parse state tags, treating as empty", map[string]interface{}{
-				"id":    state.ID.ValueString(),
-				"error": diags.Errors(),
-			})
-			stateTags = make(map[string]string)
+		state.Tags = plan.Tags
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
-
-		if !reflect.DeepEqual(planTags, stateTags) {
-			tflog.Info(ctx, "Updating service tags", map[string]interface{}{
-				"id": state.ID.ValueString(),
-			})
-
-			err := r.client.UpdateServiceTags(ctx, state.ID.ValueString(), planTags)
-			if err != nil {
-				if errors.Is(err, skysql.ErrorServiceNotFound) {
-					tflog.Warn(ctx, "SkySQL service not found, removing from state", map[string]interface{}{
-						"id": state.ID.ValueString(),
-					})
-					resp.State.RemoveResource(ctx)
-					return
-				}
-				// Log warning but don't fail the update to protect against tag API errors
-				tflog.Warn(ctx, "Failed to update service tags, continuing with other updates", map[string]interface{}{
-					"id":    state.ID.ValueString(),
-					"error": err.Error(),
-				})
-				return
-			}
-
-			state.Tags = plan.Tags
-			resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-			if resp.Diagnostics.HasError() {
-				return
-			}
-			r.waitForUpdate(ctx, state, resp)
-		}
+		r.waitForUpdate(ctx, state, resp)
 	}
 }
 
@@ -1713,54 +1720,5 @@ func (r *ServiceResource) UpgradeState(ctx context.Context) map[int64]resource.S
 				resp.Diagnostics.Append(diags...)
 			},
 		},
-	}
-}
-
-// tagsNamePlanModifier ensures tags.name always matches the service name
-type tagsNamePlanModifier struct{}
-
-func (m *tagsNamePlanModifier) Description(_ context.Context) string {
-	return "Ensures tags.name matches the service name since the API overwrites it"
-}
-
-func (m *tagsNamePlanModifier) MarkdownDescription(ctx context.Context) string {
-	return m.Description(ctx)
-}
-
-func (m *tagsNamePlanModifier) PlanModifyMap(ctx context.Context, req planmodifier.MapRequest, resp *planmodifier.MapResponse) {
-	// Don't modify plan during destroy
-	if req.Plan.Raw.IsNull() {
-		return
-	}
-
-	// Get the planned service name
-	var plannedName types.String
-	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("name"), &plannedName)...)
-	if resp.Diagnostics.HasError() || plannedName.IsNull() || plannedName.IsUnknown() {
-		return
-	}
-
-	// If tags are planned, ensure tags.name matches service name
-	if !req.PlanValue.IsNull() && !req.PlanValue.IsUnknown() {
-		var plannedTags map[string]string
-		resp.Diagnostics.Append(req.PlanValue.ElementsAs(ctx, &plannedTags, false)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		// Set tags.name to match service name (API behavior)
-		if plannedTags == nil {
-			plannedTags = make(map[string]string)
-		}
-		plannedTags["name"] = plannedName.ValueString()
-
-		// Update the planned value
-		correctedTags, diags := types.MapValueFrom(ctx, types.StringType, plannedTags)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-
-		resp.PlanValue = correctedTags
 	}
 }

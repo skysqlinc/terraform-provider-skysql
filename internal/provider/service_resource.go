@@ -287,9 +287,8 @@ var serviceResourceSchemaV0 = schema.Schema{
 		"ssl_enabled": schema.BoolAttribute{
 			Optional:    true,
 			Computed:    true,
-			Description: "Whether to enable SSL. Valid values are: true or false",
+			Description: "Whether to enable SSL/TLS encryption for client connections to the database. When true, the database requires TLS-encrypted connections. Can be toggled on an existing service (the service will be updated in-place). Cannot be toggled for `serverless-standalone` topology.",
 			PlanModifiers: []planmodifier.Bool{
-				boolplanmodifier.RequiresReplace(),
 				boolplanmodifier.UseStateForUnknown(),
 			},
 		},
@@ -934,6 +933,11 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	r.updateServiceSSL(ctx, plan, state, resp)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	r.updateServiceConfig(ctx, plan, state, resp)
 	if resp.Diagnostics.HasError() {
 		return
@@ -1023,6 +1027,29 @@ func (r *ServiceResource) updateNumberOfNodeForService(ctx context.Context, plan
 		}
 
 		state.Nodes = plan.Nodes
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		r.waitForUpdate(ctx, state, resp)
+	}
+}
+
+func (r *ServiceResource) updateServiceSSL(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
+	if plan.SSLEnabled.ValueBool() != state.SSLEnabled.ValueBool() {
+		tflog.Info(ctx, "Updating service SSL", map[string]interface{}{
+			"id":   state.ID.ValueString(),
+			"from": state.SSLEnabled.ValueBool(),
+			"to":   plan.SSLEnabled.ValueBool(),
+		})
+
+		err := r.client.SetServiceSSL(ctx, state.ID.ValueString(), plan.SSLEnabled.ValueBool())
+		if err != nil {
+			resp.Diagnostics.AddError("Error updating service SSL", fmt.Sprintf("Unable to update service SSL, got error: %s", err))
+			return
+		}
+
+		state.SSLEnabled = plan.SSLEnabled
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -1591,7 +1618,7 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 		}
 	}
 
-	// Block start/stop operations for serverless-standalone services
+	// Block start/stop and SSL toggle for serverless-standalone services
 	if plan.Topology.ValueString() == "serverless-standalone" {
 		if state == nil && !plan.IsActive.IsUnknown() {
 			// Prevent setting is_active during creation
@@ -1606,18 +1633,18 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 				"Attempt to modify read-only attribute",
 				"Start/stop operations are not supported for serverless services")
 		}
+
+		if state != nil && plan.SSLEnabled.ValueBool() != state.SSLEnabled.ValueBool() {
+			resp.Diagnostics.AddAttributeError(path.Root("ssl_enabled"),
+				"Attempt to modify read-only attribute",
+				"SSL can't be toggled for serverless services")
+		}
 	}
 
 	if state != nil && plan.Architecture.ValueString() != state.Architecture.ValueString() {
 		resp.Diagnostics.AddError("Cannot change service architecture",
 			"To prevent accidental deletion of data, changing architecture isn't allowed. "+
 				"Please explicitly destroy this service before changing its architecture.")
-	}
-
-	if state != nil && plan.SSLEnabled.ValueBool() != state.SSLEnabled.ValueBool() {
-		resp.Diagnostics.AddError("Cannot change service ssl_enabled",
-			"To prevent accidental deletion of data, changing ssl_enabled isn't allowed. "+
-				"Please explicitly destroy this service before changing its ssl_enabled.")
 	}
 
 	if state != nil && plan.Version.ValueString() != state.Version.ValueString() {

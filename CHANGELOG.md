@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.5.2] - 2026-04-06
+### Fixed
+- `ssl_enabled` can now be toggled on an existing service in-place without requiring destroy and recreate ([#45](https://github.com/skysqlinc/terraform-provider-skysql/issues/45)).
+- Improved `ssl_enabled` documentation to explain that it controls TLS encryption for client database connections.
+
 ## [3.5.1] - 2026-04-06
 ### Fixed
 - Fixed `tags` attribute causing perpetual diffs and "Provider produced inconsistent result after apply" errors ([#34](https://github.com/skysqlinc/terraform-provider-skysql/issues/34)).

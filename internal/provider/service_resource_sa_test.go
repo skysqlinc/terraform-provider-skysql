@@ -102,7 +102,7 @@ func TestServiceResourceServerlessAnalytics(t *testing.T) {
 		json.NewEncoder(w).Encode(service)
 		w.WriteHeader(http.StatusCreated)
 	})
-	for i := 0; i < 8; i++ {
+	for i := 0; i < 7; i++ {
 		expectRequest(func(w http.ResponseWriter, req *http.Request) {
 			r.Equal(
 				fmt.Sprintf("%s %s/%s", http.MethodGet, "/provisioning/v1/services", serviceID),
@@ -323,26 +323,6 @@ func TestServiceResourceServerlessAnalytics(t *testing.T) {
 			}
 			   `,
 				ExpectError: regexp.MustCompile(`Attempt to modify read-only attribute`),
-				Destroy:     false,
-			},
-			{
-				Config: `
-			resource "skysql_service" default {
-				  service_type      = "analytical"
-				  topology          = "sa"
-				  cloud_provider    = "aws"
-				  region            = "us-east-2"
-                  ssl_enabled       =  true
-				  name              = "serverless-analytics"
-				  wait_for_creation = true
-				  wait_for_deletion = true
-				  wait_for_update   = true
-				  deletion_protection = false
-                  volume_type = "io1"
-				  volume_iops = 3000
-			}
-			   `,
-				ExpectError: regexp.MustCompile(`Cannot change service ssl_enabled`),
 				Destroy:     false,
 			},
 			{

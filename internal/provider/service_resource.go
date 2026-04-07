@@ -1616,6 +1616,7 @@ func (r *ServiceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 				"Attempt to modify read-only attribute",
 				fmt.Sprintf("The argument %q is read only for the %q topology", "version", plan.Topology.ValueString()))
 		}
+
 	}
 
 	// Block start/stop and SSL toggle for serverless-standalone services

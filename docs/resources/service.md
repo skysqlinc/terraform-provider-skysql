@@ -75,7 +75,7 @@ resource "skysql_service" "default" {
 - `project_id` (String) The ID of the project to create the service in
 - `replication_enabled` (Boolean) Whether to enable global replication. Valid values are: true or false. Works for xpand-direct topology only
 - `size` (String) The size of the service. Valid values are: sky-2x4, sky-2x8 etc
-- `ssl_enabled` (Boolean) Whether to enable SSL/TLS encryption for client connections to the database. When true, the database requires TLS-encrypted connections. Can be toggled on an existing service (the service will be updated in-place). Cannot be toggled for `serverless-standalone` topology.
+- `ssl_enabled` (Boolean) Whether to enable SSL. Valid values are: true or false
 - `storage` (Number) The storage size in GB. Valid values are: 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000
 - `tags` (Map of String) User-defined tags for the service. Use tags.name to set a display name (the API sets this to the service name by default on creation). Only the tag keys you specify here are tracked in Terraform state; any server-injected tags are ignored.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))

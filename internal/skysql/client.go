@@ -224,23 +224,6 @@ func handleError(resp *resty.Response) error {
 	return errors.New(resp.Status())
 }
 
-func (c *Client) SetServiceSSL(ctx context.Context, serviceID string, sslEnabled bool) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.SetSSLRequest{SSLEnabled: sslEnabled}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/security/ssl")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
-
-	return err
-}
-
 func (c *Client) SetServicePowerState(ctx context.Context, serviceID string, isActive bool) error {
 	resp, err := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").

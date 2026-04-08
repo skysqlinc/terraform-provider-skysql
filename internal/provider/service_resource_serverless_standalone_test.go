@@ -93,7 +93,7 @@ func TestServiceResourceServerlessStandalone_IsActiveReadOnly(t *testing.T) {
 		json.NewEncoder(w).Encode(service)
 	})
 	// Multiple GET requests for service status checks during and after creation
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 4; i++ {
 		expectRequest(func(w http.ResponseWriter, req *http.Request) {
 			r.Equal(http.MethodGet, req.Method)
 			r.Equal(fmt.Sprintf("/provisioning/v1/services/%s", serviceID), req.URL.Path)
@@ -224,29 +224,6 @@ func TestServiceResourceServerlessStandalone_IsActiveReadOnly(t *testing.T) {
 			}
 			   `,
 				ExpectError: regexp.MustCompile(`Start/stop operations are not supported for serverless services`),
-				Destroy:     false,
-			},
-			// Test 4: Attempt to toggle ssl_enabled during update - should fail for serverless-standalone
-			{
-				Config: `
-			resource "skysql_service" default {
-				  service_type      = "transactional"
-				  topology          = "serverless-standalone"
-				  cloud_provider    = "aws"
-				  region            = "us-east-1"
-				  name              = "sls-standalone-test"
-				  wait_for_creation = true
-				  wait_for_deletion = true
-				  wait_for_update   = true
-				  deletion_protection = false
-				  ssl_enabled       = false
-				  size              = "sky-2x8"
-				  storage           = 100
-				  volume_type       = "io1"
-				  volume_iops       = 3000
-			}
-			   `,
-				ExpectError: regexp.MustCompile(`SSL can't be toggled for serverless services`),
 				Destroy:     false,
 			},
 		},

@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.5.3] - 2026-04-08
+### Reverted
+- Reverted `ssl_enabled` changes from 3.5.2. The feature is not fully implemented yet and will be completed in a future release.
+
 ## [3.5.2] - 2026-04-06
 ### Fixed
 - `ssl_enabled` can now be toggled on an existing service in-place without requiring destroy and recreate ([#45](https://github.com/skysqlinc/terraform-provider-skysql/issues/45)).

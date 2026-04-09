@@ -2,7 +2,7 @@ package skysql
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -38,23 +38,40 @@ func New(baseURL string, apiKey string, orgID string) *Client {
 
 	return &Client{
 		HTTPClient: httpClient.
-			// Set retry count too non-zero to enable retries
+			// Set retry count to non-zero to enable retries.
 			SetRetryCount(3).
 			// Default is 100 milliseconds.
 			SetRetryWaitTime(5 * time.Second).
 			// MaxWaitTime can be overridden as well.
 			// Default is 2 seconds.
 			SetRetryMaxWaitTime(20 * time.Second).
-			// SetRetryAfter sets callback to calculate wait time between retries.
-			// Default (nil) implies exponential backoff with jitter
+			// Honor Retry-After header on 429 responses;
+			// fall back to default exponential backoff with jitter.
 			SetRetryAfter(func(client *resty.Client, resp *resty.Response) (time.Duration, error) {
-				return 0, errors.New("retries quota exceeded")
+				if resp.StatusCode() == http.StatusTooManyRequests {
+					if ra := resp.Header().Get("Retry-After"); ra != "" {
+						if seconds, err := strconv.Atoi(ra); err == nil {
+							return time.Duration(seconds) * time.Second, nil
+						}
+					}
+				}
+				// Return 0 to let resty use its default backoff.
+				return 0, nil
 			}).
 			AddRetryCondition(
-				// RetryConditionFunc type is for retry condition function
-				// input: non-nil Response OR request execution error
 				func(r *resty.Response, err error) bool {
-					return r.StatusCode() == http.StatusInternalServerError
+					if err != nil {
+						return true
+					}
+					switch r.StatusCode() {
+					case http.StatusTooManyRequests,
+						http.StatusInternalServerError,
+						http.StatusBadGateway,
+						http.StatusServiceUnavailable,
+						http.StatusGatewayTimeout:
+						return true
+					}
+					return false
 				}).
 			EnableTrace(),
 	}
@@ -215,13 +232,12 @@ func handleError(resp *resty.Response) error {
 		return ErrorUnauthorized
 	}
 	if resp.Error() != nil {
-		if resp.StatusCode() == 500 {
-			return errors.New("SkySQL API returned 500 Internal Server Error")
+		errResp, ok := resp.Error().(*ErrorResponse)
+		if ok && len(errResp.Errors) > 0 {
+			return fmt.Errorf("SkySQL API %d: %s", resp.StatusCode(), errResp.Errors[0].Message)
 		}
-		errResp := resp.Error().(*ErrorResponse)
-		return errors.New(errResp.Errors[0].Message)
 	}
-	return errors.New(resp.Status())
+	return fmt.Errorf("SkySQL API error: %s", resp.Status())
 }
 
 func (c *Client) SetServicePowerState(ctx context.Context, serviceID string, isActive bool) error {

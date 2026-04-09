@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.4] - 2026-04-09
+### Fixed
+- Fixed broken HTTP retry logic — transient 5xx errors were never retried despite retry configuration.
+- Added 429 rate-limit handling with `Retry-After` header support.
+- Improved error messages to include API response details instead of generic "500 Internal Server Error".
+
 ## [3.5.3] - 2026-04-08
 ### Reverted
 - Reverted `ssl_enabled` changes from 3.5.2. The feature is not fully implemented yet and will be completed in a future release.

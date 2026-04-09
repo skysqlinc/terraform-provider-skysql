@@ -286,6 +286,15 @@ resource "skysql_service" default {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
 				})
+				// The client retries 500s up to 3 times.
+				for range 3 {
+					expectRequest(func(w http.ResponseWriter, req *http.Request) {
+						r.Equal(http.MethodPost, req.Method)
+						r.Equal("/provisioning/v1/services", req.URL.Path)
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusInternalServerError)
+					})
+				}
 			},
 			checks: []resource.TestCheckFunc{
 				resource.TestCheckResourceAttr("skysql_service.default", "id", serviceID),

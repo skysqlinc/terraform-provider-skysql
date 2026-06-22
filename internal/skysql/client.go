@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -20,6 +21,13 @@ import (
 
 type Client struct {
 	HTTPClient *resty.Client
+
+	// pendingRetryInterval and pendingRetryTimeout control how long mutating
+	// operations wait out a transient "service is in a pending state" rejection
+	// from the backend. Defaulted in New; overridable in tests. See
+	// doWithPendingRetry.
+	pendingRetryInterval time.Duration
+	pendingRetryTimeout  time.Duration
 }
 
 func New(baseURL string, apiKey string, orgID string) *Client {
@@ -74,6 +82,8 @@ func New(baseURL string, apiKey string, orgID string) *Client {
 					return false
 				}).
 			EnableTrace(),
+		pendingRetryInterval: defaultPendingRetryInterval,
+		pendingRetryTimeout:  defaultPendingRetryTimeout,
 	}
 }
 
@@ -186,22 +196,27 @@ func (c *Client) GetServiceCredentialsByID(ctx context.Context, serviceID string
 }
 
 func (c *Client) UpdateServiceAllowListByID(ctx context.Context, serviceID string, allowlist []provisioning.AllowListItem) ([]provisioning.AllowListItem, error) {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetResult(provisioning.ReadAllowListResponse{}).
-		SetError(&ErrorResponse{}).
-		SetContext(ctx).
-		SetBody(allowlist).
-		Put("/provisioning/v1/services/" + serviceID + "/security/allowlist")
-	if err != nil {
-		return nil, err
-	}
-	if resp.IsError() {
-		return nil, handleError(resp)
-	}
-	response := *resp.Result().(*provisioning.ReadAllowListResponse)
+	var result []provisioning.AllowListItem
+	err := c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetResult(provisioning.ReadAllowListResponse{}).
+			SetError(&ErrorResponse{}).
+			SetContext(ctx).
+			SetBody(allowlist).
+			Put("/provisioning/v1/services/" + serviceID + "/security/allowlist")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
+		response := *resp.Result().(*provisioning.ReadAllowListResponse)
+		result = response[0].AllowList
+		return nil
+	})
 
-	return response[0].AllowList, err
+	return result, err
 }
 
 func (c *Client) ReadServiceAllowListByID(ctx context.Context, serviceID string) (provisioning.ReadAllowListResponse, error) {
@@ -225,36 +240,56 @@ func (c *Client) ReadServiceAllowListByID(ctx context.Context, serviceID string)
 }
 
 func handleError(resp *resty.Response) error {
-	if resp.StatusCode() == 404 {
+	if resp.StatusCode() == http.StatusNotFound {
 		return ErrorServiceNotFound
 	}
-	if resp.StatusCode() == 401 {
+	if resp.StatusCode() == http.StatusUnauthorized {
 		return ErrorUnauthorized
 	}
+
+	detail := ""
 	if resp.Error() != nil {
-		errResp, ok := resp.Error().(*ErrorResponse)
-		if ok && len(errResp.Errors) > 0 {
-			return fmt.Errorf("SkySQL API %d: %s", resp.StatusCode(), errResp.Errors[0].Message)
+		if errResp, ok := resp.Error().(*ErrorResponse); ok && len(errResp.Errors) > 0 {
+			detail = errResp.Errors[0].Message
 		}
+	}
+
+	// Classify the DPS status-gate rejection (service is mid-operation) into a
+	// single sentinel so mutating calls can wait it out and retry (MCDEV-3899).
+	// Current DPS returns it as a 400 with a distinctive message; newer DPS
+	// returns a 409 Conflict. Matching the status (and the legacy message for
+	// backward compatibility) keeps detection off the fragile message string.
+	if resp.StatusCode() == http.StatusConflict ||
+		strings.Contains(strings.ToLower(detail), pendingStateMarker) {
+		if detail != "" {
+			return fmt.Errorf("%w (SkySQL API %d: %s)", ErrorServiceInPendingState, resp.StatusCode(), detail)
+		}
+		return fmt.Errorf("%w (SkySQL API %d)", ErrorServiceInPendingState, resp.StatusCode())
+	}
+
+	if detail != "" {
+		return fmt.Errorf("SkySQL API %d: %s", resp.StatusCode(), detail)
 	}
 	return fmt.Errorf("SkySQL API error: %s", resp.Status())
 }
 
 func (c *Client) SetServicePowerState(ctx context.Context, serviceID string, isActive bool) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.PowerStateRequest{IsActive: isActive}).
-		SetError(&ErrorResponse{}).
-		Post("/provisioning/v1/services/" + serviceID + "/power")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetContext(ctx).
+			SetBody(&provisioning.PowerStateRequest{IsActive: isActive}).
+			SetError(&ErrorResponse{}).
+			Post("/provisioning/v1/services/" + serviceID + "/power")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
 
-	return err
+		return nil
+	})
 }
 
 func (c *Client) ModifyServiceEndpoints(
@@ -264,96 +299,110 @@ func (c *Client) ModifyServiceEndpoints(
 	allowedAccounts []string,
 	visibility string,
 ) (*provisioning.ServiceEndpoint, error) {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.PatchServiceEndpointsRequest{
-			{Mechanism: mechanism,
-				AllowedAccounts: allowedAccounts,
-				Visibility:      visibility},
-		}).
-		SetResult(provisioning.PatchServiceEndpointsResponse{}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/endpoints")
-	if err != nil {
-		return nil, err
-	}
-	if resp.IsError() {
-		return nil, handleError(resp)
-	}
-	response := *resp.Result().(*provisioning.PatchServiceEndpointsResponse)
-	if response == nil {
-		response = make(provisioning.PatchServiceEndpointsResponse, 0)
-	}
-	return &response[0], err
+	var result *provisioning.ServiceEndpoint
+	err := c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetContext(ctx).
+			SetBody(&provisioning.PatchServiceEndpointsRequest{
+				{Mechanism: mechanism,
+					AllowedAccounts: allowedAccounts,
+					Visibility:      visibility},
+			}).
+			SetResult(provisioning.PatchServiceEndpointsResponse{}).
+			SetError(&ErrorResponse{}).
+			Patch("/provisioning/v1/services/" + serviceID + "/endpoints")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
+		response := *resp.Result().(*provisioning.PatchServiceEndpointsResponse)
+		if response == nil {
+			response = make(provisioning.PatchServiceEndpointsResponse, 0)
+		}
+		result = &response[0]
+		return nil
+	})
+
+	return result, err
 }
 
 func (c *Client) ModifyServiceSize(ctx context.Context, serviceID string, size string) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.UpdateServiceSizeRequest{Size: size}).
-		SetError(&ErrorResponse{}).
-		Post("/provisioning/v1/services/" + serviceID + "/size")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetContext(ctx).
+			SetBody(&provisioning.UpdateServiceSizeRequest{Size: size}).
+			SetError(&ErrorResponse{}).
+			Post("/provisioning/v1/services/" + serviceID + "/size")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
 
-	return err
+		return nil
+	})
 }
 
 func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, nodes int64) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.UpdateServiceNodesNumberRequest{Nodes: nodes}).
-		SetError(&ErrorResponse{}).
-		Post("/provisioning/v1/services/" + serviceID + "/nodes")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetContext(ctx).
+			SetBody(&provisioning.UpdateServiceNodesNumberRequest{Nodes: nodes}).
+			SetError(&ErrorResponse{}).
+			Post("/provisioning/v1/services/" + serviceID + "/nodes")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
 
-	return err
+		return nil
+	})
 }
 
 func (c *Client) ModifyServiceStorage(ctx context.Context, serviceID string, size int64, iops int64, throughput int64) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.UpdateStorageRequest{Size: size, IOPS: iops, Throughput: throughput}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/storage")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetContext(ctx).
+			SetBody(&provisioning.UpdateStorageRequest{Size: size, IOPS: iops, Throughput: throughput}).
+			SetError(&ErrorResponse{}).
+			Patch("/provisioning/v1/services/" + serviceID + "/storage")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
 
-	return err
+		return nil
+	})
 }
 
 func (c *Client) UpdateServiceTags(ctx context.Context, serviceID string, tags map[string]string) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetContext(ctx).
-		SetBody(&provisioning.UpdateServiceTagsRequest{Tags: tags}).
-		SetError(&ErrorResponse{}).
-		Patch("/provisioning/v1/services/" + serviceID + "/tags")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetContext(ctx).
+			SetBody(&provisioning.UpdateServiceTagsRequest{Tags: tags}).
+			SetError(&ErrorResponse{}).
+			Patch("/provisioning/v1/services/" + serviceID + "/tags")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
 
-	return err
+		return nil
+	})
 }
 
 func (c *Client) SetAutonomousActions(
@@ -527,34 +576,38 @@ func (c *Client) SetConfigValue(ctx context.Context, configID string, variableNa
 }
 
 func (c *Client) ApplyConfigToService(ctx context.Context, serviceID string, configID string) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetError(&ErrorResponse{}).
-		SetContext(ctx).
-		SetBody(&provisioning.ServiceConfigState{ConfigID: configID}).
-		Post("/provisioning/v1/services/" + serviceID + "/config")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
-	return nil
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetError(&ErrorResponse{}).
+			SetContext(ctx).
+			SetBody(&provisioning.ServiceConfigState{ConfigID: configID}).
+			Post("/provisioning/v1/services/" + serviceID + "/config")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
+		return nil
+	})
 }
 
 func (c *Client) RemoveConfigFromService(ctx context.Context, serviceID string) error {
-	resp, err := c.HTTPClient.R().
-		SetHeader("Accept", "application/json").
-		SetError(&ErrorResponse{}).
-		SetContext(ctx).
-		Delete("/provisioning/v1/services/" + serviceID + "/config")
-	if err != nil {
-		return err
-	}
-	if resp.IsError() {
-		return handleError(resp)
-	}
-	return nil
+	return c.doWithPendingRetry(ctx, func() error {
+		resp, err := c.HTTPClient.R().
+			SetHeader("Accept", "application/json").
+			SetError(&ErrorResponse{}).
+			SetContext(ctx).
+			Delete("/provisioning/v1/services/" + serviceID + "/config")
+		if err != nil {
+			return err
+		}
+		if resp.IsError() {
+			return handleError(resp)
+		}
+		return nil
+	})
 }
 
 func (c *Client) GetConfigKeysByTopology(ctx context.Context, topologyName string, version string) ([]provisioning.ConfigKey, error) {

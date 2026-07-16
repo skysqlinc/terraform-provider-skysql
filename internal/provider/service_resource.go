@@ -608,6 +608,29 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
+	// The topologies endpoint is organization-aware: topologies the calling
+	// organization cannot launch (e.g. serverless for BYOA) are absent from it.
+	if createServiceRequest.Topology == "serverless-standalone" {
+		topologies, err := r.client.GetTopologies(ctx)
+		if err != nil {
+			tflog.Warn(ctx, "unable to verify topology availability, deferring to the create API: "+err.Error())
+		} else {
+			offered := false
+			for _, topology := range topologies {
+				if topology.Name == createServiceRequest.Topology {
+					offered = true
+					break
+				}
+			}
+			if !offered {
+				resp.Diagnostics.AddAttributeError(path.Root("topology"),
+					"Topology not available",
+					fmt.Sprintf("The %q topology is not available for your organization.", createServiceRequest.Topology))
+				return
+			}
+		}
+	}
+
 	service, err := r.client.CreateService(ctx, createServiceRequest)
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating service", err.Error())

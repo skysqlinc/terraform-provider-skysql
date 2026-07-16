@@ -24,3 +24,4 @@ go install
 See the [documentation](docs/) for usage examples and detailed guides, including:
 
 - [Multi-Organization Support](docs/guides/multi-organization-support.md) - Managing services across multiple SkySQL organizations
+- [Bring Your Own Account (BYOA)](docs/guides/byoa.md) - Using the provider with a BYOA organization

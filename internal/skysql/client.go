@@ -127,6 +127,27 @@ func (c *Client) GetVersions(ctx context.Context, options ...func(url.Values)) (
 	return *resp.Result().(*[]provisioning.Version), err
 }
 
+func (c *Client) GetTopologies(ctx context.Context, options ...func(url.Values)) ([]provisioning.Topology, error) {
+	request := c.HTTPClient.R()
+	for _, option := range options {
+		option(request.QueryParam)
+	}
+	resp, err := request.
+		SetHeader("Accept", "application/json").
+		SetResult([]provisioning.Topology{}).
+		SetError(&ErrorResponse{}).
+		SetContext(ctx).
+		Get("/provisioning/v1/topologies")
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.IsError() {
+		return nil, handleError(resp)
+	}
+	return *resp.Result().(*[]provisioning.Topology), err
+}
+
 func (c *Client) GetServiceByID(ctx context.Context, serviceID string) (*provisioning.Service, error) {
 	resp, err := c.HTTPClient.R().
 		SetHeader("Accept", "application/json").

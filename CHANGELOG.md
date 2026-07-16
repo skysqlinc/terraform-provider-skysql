@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.6] - 2026-07-15
+### Fixed
+- Creating a `serverless-standalone` service now fails fast with a clear error when the topology is not offered to the calling organization (for example BYOA organizations), instead of surfacing a raw API error at apply time (MCDEV-4132).
+
+### Added
+- BYOA documentation: a [Bring Your Own Account guide](docs/guides/byoa.md) and a runnable [`examples/byoa`](examples/byoa) example covering topology restrictions, endpoint defaults, and region availability for BYOA organizations.
+
 ## [3.5.5] - 2026-06-17
 ### Fixed
 - Concurrent service operations (for example a config change and a scaling operation) no longer conflict. When the API rejects a mutation because the service is in a transient `pending_*` state, the provider now waits for the service to become modifiable and retries instead of failing the apply (MCDEV-3899).

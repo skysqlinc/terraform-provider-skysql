@@ -1,5 +1,5 @@
 variable "topology" {
-  description = "SkySQL topology type to deploy. Serverless topologies are not available for BYOA organizations."
+  description = "Topology to deploy. Serverless topologies are not available for BYOA organizations."
   type        = string
   default     = "es-single"
 }
@@ -11,6 +11,6 @@ variable "region" {
 }
 
 variable "skysql_service_name" {
-  description = "Name of the skysql service being created"
+  description = "Name of the service being created"
   type        = string
 }

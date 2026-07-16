@@ -5,14 +5,13 @@ data "skysql_versions" "this" {
 }
 
 ###
-# Create a SkySQL service in a BYOA (Bring Your Own Account) organization.
+# Create a MariaDB Cloud service in a BYOA (Bring Your Own Account)
+# organization. The API detects a BYOA organization automatically: the service
+# is deployed into your own cloud account, runs on dedicated tenancy, and
+# endpoints default to private connectivity.
 #
-# The API detects a BYOA organization automatically: the service is deployed
-# into your own cloud account, runs on dedicated tenancy, and endpoints
-# default to private connectivity.
-#
-# Note: the serverless-standalone topology is not available for BYOA
-# organizations. Use provisioned topologies such as es-single or es-replica.
+# The serverless-standalone topology is not available for BYOA organizations;
+# use a provisioned topology such as es-single or es-replica.
 ###
 resource "skysql_service" "this" {
   service_type              = "transactional"

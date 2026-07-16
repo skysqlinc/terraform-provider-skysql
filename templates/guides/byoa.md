@@ -6,36 +6,17 @@ description: |-
 
 # Bring Your Own Account (BYOA)
 
-In a BYOA (Bring Your Own Account) organization, SkySQL deploys database services into your own cloud account instead of SkySQL-managed infrastructure. BYOA is enabled per organization and per cloud provider by the SkySQL team — there is nothing to configure in the provider itself. The API recognizes a BYOA organization from your API key and applies the rules below automatically.
+In a BYOA organization, MariaDB Cloud deploys database services into your own cloud account instead of MariaDB Cloud's own infrastructure. BYOA is enabled for an organization by the MariaDB Cloud team, per cloud provider. There is nothing to configure in the provider itself: the API recognizes a BYOA organization from your API key and applies BYOA behavior automatically.
 
-## What is different for a BYOA organization
+Most things work exactly as they do in any other organization. A few don't, and they matter when writing Terraform.
 
-### Topologies
+Serverless is not available. Creating a service with `topology = "serverless-standalone"` fails with `The "serverless-standalone" topology is not available for your organization.` Use a provisioned topology such as `es-single` or `es-replica` instead.
 
-Serverless is not available. Creating a service with `topology = "serverless-standalone"` fails with:
+Endpoints are private by default. If you don't configure an IP `allow_list`, the service comes up with a private `privateconnect` endpoint — so set `endpoint_mechanism = "privateconnect"` and `endpoint_allowed_accounts` explicitly, otherwise your configuration says one thing and the created service another. If you do configure an `allow_list`, the service gets a public endpoint restricted to those addresses. The API will not let a BYOA endpoint become a public `nlb` endpoint without a non-empty allow list.
 
-```
-The "serverless-standalone" topology is not available for your organization.
-```
+Two smaller points: services always run on dedicated tenancy in your cloud account regardless of configuration, and only the regions enabled for your BYOA account during onboarding are available.
 
-Use provisioned topologies such as `es-single` or `es-replica` instead.
-
-### Tenancy
-
-BYOA services always run on dedicated tenancy in your cloud account. The API enforces this regardless of configuration.
-
-### Endpoints
-
-BYOA services default to private connectivity:
-
-- Without an IP `allow_list`, the service is created with a private `privateconnect` endpoint. Set `endpoint_mechanism = "privateconnect"` and `endpoint_allowed_accounts` explicitly so your configuration matches what the API creates.
-- With an IP `allow_list`, the service is created with a public endpoint restricted to those addresses. The API rejects switching a BYOA endpoint to a public `nlb` endpoint without a non-empty allow list.
-
-### Regions
-
-Only the regions enabled for your BYOA account during onboarding are available to your organization.
-
-## Example
+A typical BYOA service looks like this:
 
 ```hcl
 provider "skysql" {}
@@ -64,4 +45,4 @@ resource "skysql_service" "this" {
 }
 ```
 
-A complete runnable example is available in [`examples/byoa`](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/byoa). For wiring up the private endpoint on the consumer side, see the [`privateconnect` (AWS PrivateLink)](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/privateconnect), [`azure-private-link`](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/azure-private-link), and [`private-service-connect` (GCP)](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/private-service-connect) examples.
+A complete runnable version of this is in [`examples/byoa`](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/byoa). For wiring up the private endpoint on the consumer side, see the [`privateconnect` (AWS PrivateLink)](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/privateconnect), [`azure-private-link`](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/azure-private-link), and [`private-service-connect` (GCP)](https://github.com/skysqlinc/terraform-provider-skysql/tree/main/examples/private-service-connect) examples.

@@ -113,8 +113,36 @@ resource "skysql_service" "default" {
 }
 ```
 
+## Scaling MaxScale Nodes
+
+Replicated topologies that include MaxScale (for example `es-replica` and `galera`) accept a `maxscale_nodes` attribute. Changing its value updates the service in place — for example, going from a single MaxScale node to a redundant pair:
+
+```hcl
+resource "skysql_service" "default" {
+  service_type      = "transactional"
+  topology          = "galera"
+  cloud_provider    = "aws"
+  region            = "us-east-1"
+  name              = "myservice"
+  architecture      = "amd64"
+  nodes             = 3
+  maxscale_nodes    = 2 # was 1
+  maxscale_size     = "sky-2x4"
+  size              = "sky-4x16"
+  storage           = 100
+  ssl_enabled       = true
+  version           = "10.6"
+  wait_for_creation = true
+  wait_for_update   = true
+}
+```
+
+A `maxscale_nodes` change can be combined with a `nodes` change in the same apply; the provider submits them as a single scaling request.
+
+~> **Note:** Valid values are 1 or 2, and MaxScale changes require the Power tier — the same rules that apply when configuring MaxScale at creation. Removing `maxscale_nodes` from the configuration entirely forces the service to be replaced, as does changing `maxscale_size`.
+
 ## Important Notes
 
 - **Set `wait_for_update = true`** to ensure Terraform waits for each scaling operation to complete before proceeding. Without this, Terraform will return immediately after submitting the request.
 - **Scaling is an online operation** — the service remains accessible during scaling, though brief performance impact may occur.
-- **Node count scaling** is also supported via the `nodes` attribute and can be combined with size and storage changes in the same apply.
+- **Node count scaling** is also supported via the `nodes` attribute and can be combined with size, storage, and MaxScale node changes in the same apply.

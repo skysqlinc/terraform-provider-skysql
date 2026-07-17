@@ -369,12 +369,12 @@ func (c *Client) ModifyServiceSize(ctx context.Context, serviceID string, size s
 	})
 }
 
-func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, nodes int64) error {
+func (c *Client) ModifyServiceNodeNumber(ctx context.Context, serviceID string, req *provisioning.UpdateServiceNodesNumberRequest) error {
 	return c.doWithPendingRetry(ctx, func() error {
 		resp, err := c.HTTPClient.R().
 			SetHeader("Accept", "application/json").
 			SetContext(ctx).
-			SetBody(&provisioning.UpdateServiceNodesNumberRequest{Nodes: nodes}).
+			SetBody(req).
 			SetError(&ErrorResponse{}).
 			Post("/provisioning/v1/services/" + serviceID + "/nodes")
 		if err != nil {

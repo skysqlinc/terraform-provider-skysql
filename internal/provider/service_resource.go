@@ -419,9 +419,15 @@ var serviceResourceSchemaV0 = schema.Schema{
 		},
 		"maxscale_nodes": schema.Int64Attribute{
 			Optional:    true,
-			Description: "The number of MaxScale nodes",
+			Description: "The number of MaxScale nodes. Changing the value updates the service in place; removing the attribute forces the service to be replaced",
 			PlanModifiers: []planmodifier.Int64{
-				int64planmodifier.RequiresReplace(),
+				int64planmodifier.RequiresReplaceIf(
+					func(ctx context.Context, req planmodifier.Int64Request, resp *int64planmodifier.RequiresReplaceIfFuncResponse) {
+						resp.RequiresReplace = req.ConfigValue.IsNull() && !req.StateValue.IsNull()
+					},
+					"Removing maxscale_nodes forces service replacement; changing its value updates the service in place.",
+					"Removing `maxscale_nodes` forces service replacement; changing its value updates the service in place.",
+				),
 				int64planmodifier.UseStateForUnknown(),
 			},
 		},
@@ -1032,26 +1038,45 @@ func (r *ServiceResource) updateServiceStorage(ctx context.Context, plan *Servic
 }
 
 func (r *ServiceResource) updateNumberOfNodeForService(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {
-	if plan.Nodes.ValueInt64() != state.Nodes.ValueInt64() {
-		tflog.Info(ctx, "Updating number of nodes for the service", map[string]interface{}{
-			"id":   state.ID.ValueString(),
-			"from": state.Nodes.ValueInt64(),
-			"to":   plan.Nodes.ValueInt64(),
-		})
+	nodesChanged := plan.Nodes.ValueInt64() != state.Nodes.ValueInt64()
+	maxscaleNodesChanged := !plan.MaxscaleNodes.IsNull() && !plan.MaxscaleNodes.IsUnknown() &&
+		plan.MaxscaleNodes.ValueInt64() != state.MaxscaleNodes.ValueInt64()
 
-		err := r.client.ModifyServiceNodeNumber(ctx, state.ID.ValueString(), plan.Nodes.ValueInt64())
-		if err != nil {
-			resp.Diagnostics.AddError("Error updating a number of nodes for the service", fmt.Sprintf("Unable to update a nodes number for the service, got error: %s", err))
-			return
-		}
-
-		state.Nodes = plan.Nodes
-		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		r.waitForUpdate(ctx, state, resp)
+	if !nodesChanged && !maxscaleNodesChanged {
+		return
 	}
+
+	request := &provisioning.UpdateServiceNodesNumberRequest{}
+	if nodesChanged {
+		request.Nodes = plan.Nodes.ValueInt64()
+	}
+	if maxscaleNodesChanged {
+		request.MaxscaleNodes = toPtr[int64](plan.MaxscaleNodes.ValueInt64())
+	}
+
+	tflog.Info(ctx, "Updating number of nodes for the service", map[string]interface{}{
+		"id":                state.ID.ValueString(),
+		"from":              state.Nodes.ValueInt64(),
+		"to":                plan.Nodes.ValueInt64(),
+		"maxscaleNodesFrom": state.MaxscaleNodes.ValueInt64(),
+		"maxscaleNodesTo":   plan.MaxscaleNodes.ValueInt64(),
+	})
+
+	err := r.client.ModifyServiceNodeNumber(ctx, state.ID.ValueString(), request)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating a number of nodes for the service", fmt.Sprintf("Unable to update a nodes number for the service, got error: %s", err))
+		return
+	}
+
+	state.Nodes = plan.Nodes
+	if maxscaleNodesChanged {
+		state.MaxscaleNodes = plan.MaxscaleNodes
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.waitForUpdate(ctx, state, resp)
 }
 
 func (r *ServiceResource) updateServiceSize(ctx context.Context, plan *ServiceResourceModel, state *ServiceResourceModel, resp *resource.UpdateResponse) {

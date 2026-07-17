@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.5.7] - 2026-07-17
+### Added
+- `maxscale_nodes` can now be changed in place. The provider applies the change through the service nodes API instead of destroying and recreating the service. Removing the attribute from configuration still forces replacement.
+
 ## [3.5.6] - 2026-07-15
 ### Fixed
 - Creating a `serverless-standalone` service now fails fast with a clear error when the topology is not offered to the calling organization (for example BYOA organizations), instead of surfacing a raw API error at apply time (MCDEV-4132).

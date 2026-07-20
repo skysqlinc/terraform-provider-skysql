@@ -45,7 +45,7 @@ This example demonstrates how to create a Galera Cluster service using the SkySQ
 
 To scale your Galera cluster:
 - You can increase nodes from 3 to 5
-- You can scale MaxScale nodes from 1 to 2
+- You can scale MaxScale nodes from 1 to 2 — `maxscale_nodes` changes are applied in place, without recreating the cluster
 - You can upgrade instance size (e.g., sky-4x16 to sky-8x32)
 - You can increase storage capacity
 

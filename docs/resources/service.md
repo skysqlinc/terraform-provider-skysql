@@ -91,7 +91,7 @@ resource "skysql_service" "galera" {
 - `endpoint_allowed_accounts` (List of String) The list of cloud accounts (aws, azure, or gcp projects) that are allowed to access the service. Works only with `privateconnect` endpoint mechanism
 - `endpoint_mechanism` (String) The endpoint mechanism to use. Valid values are: privateconnect or nlb
 - `is_active` (Boolean) Whether the service is active
-- `maxscale_nodes` (Number) The number of MaxScale nodes
+- `maxscale_nodes` (Number) The number of MaxScale nodes. Changing the value updates the service in place; removing the attribute forces the service to be replaced
 - `maxscale_size` (String) The size of the MaxScale nodes. Valid values are: sky-2x4, sky-2x8 etc
 - `nodes` (Number) The number of nodes
 - `nosql_enabled` (Boolean) Whether to enable NoSQL. Valid values are: true or false
